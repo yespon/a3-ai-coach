@@ -24,3 +24,7 @@ frontend/.next/
 
 # Runtime logs
 logs/*.log
+
+# 其它项目文件
+gangbiao-ai-coach
+gangbiao-ai-coach-web
