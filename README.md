@@ -9,6 +9,11 @@
 - 支持配置教材目录自动注入：每次新建会话时自动扫描目录并加载可读摘要（无需手工重复上传）。
 - 未配置 `OPENAI_API_KEY` 时会启用本地回退回复，便于本地联调。
 
+## 架构
+
+- `main.py` + `app/`：FastAPI API-only 后端（会话、聊天、流式 SSE、附件提取）。
+- `frontend/`：Next.js 前端（TypeScript + App Router），通过 HTTP 调用后端 API。
+
 ## 启动
 
 1. 安装依赖
@@ -17,15 +22,63 @@
 uv sync
 ```
 
-2. 启动服务
+2. 启动后端服务
 
 ```bash
 uv run python main.py
 ```
 
-3. 打开页面
+3. 后端地址
 
-访问 `http://127.0.0.1:8000`。
+- API: `http://127.0.0.1:2088`
+- 根路径会返回服务状态 JSON（不再托管静态页面）。
+
+4. 启动前端（Next.js）
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+5. 打开页面
+
+访问 `http://127.0.0.1:3000`。
+
+## 部署（Docker Compose）
+
+生产部署采用三容器架构：
+
+1. `backend`：FastAPI 服务（端口 `2088`，仅内网）。
+2. `frontend`：Next.js 服务（端口 `3000`，仅内网）。
+3. `nginx`：统一入口（对外 `80`），转发 `/api/*` 到后端，其余路径到前端。
+
+部署步骤：
+
+```bash
+# 1) 准备后端环境变量
+cp .env.example .env
+
+# 2) 构建并启动
+docker compose up -d --build
+
+# 3) 查看状态
+docker compose ps
+```
+
+验证：
+
+```bash
+curl -sS http://127.0.0.1/api/health
+curl -sS http://127.0.0.1/
+```
+
+停止：
+
+```bash
+docker compose down
+```
 
 ## 测试（TDD）
 

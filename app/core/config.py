@@ -39,3 +39,10 @@ def _resolve_materials_dir() -> Path | None:
     if not p.is_absolute():
         p = (BASE_DIR / p).resolve()
     return p
+
+
+def get_cors_allow_origins() -> list[str]:
+    raw = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
+    if not raw:
+        return ["*"]
+    return [part.strip() for part in raw.split(",") if part.strip()]
