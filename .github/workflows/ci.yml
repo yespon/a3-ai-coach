@@ -19,11 +19,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install uv
-        run: pip install uv
-
-      - name: Sync dependencies
-        run: uv sync --dev
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-asyncio pytest-cov respx
 
       - name: Run tests
-        run: uv run pytest -q
+        run: pytest -q
