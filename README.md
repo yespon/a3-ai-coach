@@ -27,6 +27,30 @@ uv run python main.py
 
 访问 `http://127.0.0.1:8000`。
 
+## 测试（TDD）
+
+本项目按 Red-Green-Refactor 流程推进：
+
+1. 先写失败测试（Red）。
+2. 做最小实现让测试通过（Green）。
+3. 在全绿后重构并再次回归（Refactor）。
+
+常用命令：
+
+```bash
+# 仅首次或依赖更新后执行
+uv sync --dev
+
+# 快速回归（unit + integration）
+uv run pytest tests/unit tests/integration -q
+
+# 契约测试
+uv run pytest tests/contract -q
+
+# 全量测试
+uv run pytest -q
+```
+
 ## 可选环境变量
 
 - `OPENAI_API_KEY`: OpenAI 或兼容网关 key。
