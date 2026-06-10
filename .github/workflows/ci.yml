@@ -22,8 +22,21 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-asyncio pytest-cov respx
+          python - <<'PY'
+          import subprocess
+          import sys
+          import tomllib
+
+          with open("pyproject.toml", "rb") as f:
+            data = tomllib.load(f)
+
+          deps = data.get("project", {}).get("dependencies", [])
+          dev_deps = data.get("dependency-groups", {}).get("dev", [])
+          pkgs = [*deps, *dev_deps]
+
+          if pkgs:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", *pkgs])
+          PY
 
       - name: Run tests
         run: pytest -q
