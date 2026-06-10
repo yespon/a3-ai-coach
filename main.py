@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from app.api.router import api_router
+from app.api.router import legacy_api_router
+from app.api.v1.router import api_v1_router
 from app.core.config import STATIC_DIR
 from app.core.logger import attach_request_logging_middleware, get_component_logger, setup_logging
 from app.services.context_service import MATERIALS_CONTEXT_CACHE
@@ -26,8 +27,8 @@ if STATIC_DIR.exists():
 LOGGER = get_component_logger(component="chatbot")
 
 attach_request_logging_middleware(app, LOGGER)
-app.include_router(api_router, prefix="/api")
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(legacy_api_router, prefix="/api")
+app.include_router(api_v1_router, prefix="/api/v1")
 
 
 @app.get("/")

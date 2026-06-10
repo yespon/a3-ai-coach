@@ -28,3 +28,9 @@ def test_legacy_api_header_takes_precedence_over_query(client):
     response = client.get("/api/health?api_version=2", headers={"x-api-version": "1"})
     assert response.status_code == 200
     assert response.headers.get("x-api-version") == "1"
+
+
+def test_explicit_v1_path_bypasses_legacy_negotiation(client):
+    response = client.get("/api/v1/health", headers={"x-api-version": "2"})
+    assert response.status_code == 200
+    assert response.headers.get("x-api-legacy") is None
