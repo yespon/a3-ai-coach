@@ -22,6 +22,7 @@ async def test_save_attachments_keeps_structured_spreadsheet_preview(monkeypatch
     monkeypatch.setattr(manager_module, "UPLOAD_ROOT", tmp_path / "uploads")
     monkeypatch.setattr(manager_module, "ATTACHMENT_EXCERPT_CHARS", 1200)
     monkeypatch.setattr(manager_module, "ATTACHMENT_HINT_CHARS", 300)
+    monkeypatch.setattr(manager_module, "ATTACHMENT_SHOW_META", False)
 
     wb = Workbook()
     ws = wb.active
@@ -50,7 +51,34 @@ async def test_save_attachments_keeps_structured_spreadsheet_preview(monkeypatch
     assert "[Structured] 识别列: 岗位价值->B列" in excerpt
     assert "岗位价值\t岗位任务\t任务目的\t任务成果" in excerpt
     assert hints
+    assert "可读摘要" not in hints[0]
+    assert "附件:" not in hints[0]
+    assert "[Structured]" in hints[0]
+
+
+@pytest.mark.asyncio
+async def test_save_attachments_includes_meta_when_switch_enabled(monkeypatch, tmp_path):
+    monkeypatch.setattr(manager_module, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(manager_module, "UPLOAD_ROOT", tmp_path / "uploads")
+    monkeypatch.setattr(manager_module, "ATTACHMENT_EXCERPT_CHARS", 1200)
+    monkeypatch.setattr(manager_module, "ATTACHMENT_HINT_CHARS", 300)
+    monkeypatch.setattr(manager_module, "ATTACHMENT_SHOW_META", True)
+
+    file_obj = _DummyUploadFile(
+        filename="readme.txt",
+        content_type="text/plain",
+        raw_bytes="hello from attachment".encode("utf-8"),
+    )
+
+    _, hints = await manager_module._save_attachments(
+        session_id="s1",
+        files=[file_obj],
+    )
+
+    assert hints
+    assert "附件:" in hints[0]
     assert "可读摘要" in hints[0]
+    assert "hello from attachment" in hints[0]
 
 
 def test_extract_attachment_excerpt_spreadsheet_contains_structured_block():
