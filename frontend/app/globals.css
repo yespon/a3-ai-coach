@@ -120,14 +120,14 @@ body {
   font-size: 18px;
 }
 
-.shell.sidebar-collapsed .primary {
+.shell.sidebar-collapsed .sidebar .primary {
   padding-left: 0;
   padding-right: 0;
   font-size: 0;
   min-height: 40px;
 }
 
-.shell.sidebar-collapsed .primary::before {
+.shell.sidebar-collapsed .sidebar .primary::before {
   content: "+";
   font-size: 24px;
   line-height: 1;
