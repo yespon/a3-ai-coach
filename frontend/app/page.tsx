@@ -218,14 +218,14 @@ export default function HomePage() {
             + 新建会话
           </button>
 
-          <label className="hint option-toggle">
+          {/* <label className="hint option-toggle">
             <input
               type="checkbox"
               checked={showContextInHistory}
               onChange={(e) => setShowContextInHistory(e.target.checked)}
             />
             创建时在历史中显示默认上下文
-          </label>
+          </label> */}
 
           <div className="session-list" aria-label="session-list">
             {sessions.map((item) => (
@@ -298,7 +298,7 @@ export default function HomePage() {
 
             <div className="composer-tips">
               按 <kbd>Enter</kbd> 发送&nbsp;&nbsp;·&nbsp;&nbsp;<kbd>Shift</kbd> + <kbd>Enter</kbd> 换行
-              <span className="composer-tips-sep">|</span>
+              {/* <span className="composer-tips-sep">|</span>
               <label className="option-toggle">
                 <input
                   type="checkbox"
@@ -306,7 +306,7 @@ export default function HomePage() {
                   onChange={(e) => setStreamMode(e.target.checked)}
                 />
                 使用流式回复
-              </label>
+              </label> */}
             </div>
           </form>
 
