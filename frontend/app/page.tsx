@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -131,6 +131,15 @@ export default function HomePage() {
     setHistory(created.history || []);
     await refreshSessions();
     return created.session_id;
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (!busy && (message.trim() || files.length > 0)) {
+        void onSubmit(event as unknown as FormEvent);
+      }
+    }
   }
 
   async function onSubmit(event: FormEvent) {
@@ -278,12 +287,17 @@ export default function HomePage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
+                onKeyDown={onKeyDown}
                 placeholder="输入你的问题，支持结合附件进行问答"
                 disabled={busy}
               />
               <button className="primary send-btn" type="submit" disabled={busy}>
                 {busy ? "发送中" : "发送"}
               </button>
+            </div>
+
+            <div className="composer-tips">
+              按 <kbd>Enter</kbd> 发送&nbsp;&nbsp;·&nbsp;&nbsp;<kbd>Shift</kbd> + <kbd>Enter</kbd> 换行
             </div>
 
             <div className="controls">
