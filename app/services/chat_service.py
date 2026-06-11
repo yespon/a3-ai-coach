@@ -29,7 +29,12 @@ async def _append_user_message_with_attachments(
     final_user_text = user_text
     if file_hints:
         final_user_text = f"{user_text}\n\n" + "\n\n".join(file_hints)
-    user_msg = ChatMessage(role="user", content=final_user_text, attachments=saved_files)
+    user_msg = ChatMessage(
+        role="user",
+        content=final_user_text,
+        attachments=saved_files,
+        display_content=user_text if file_hints else None,
+    )
     session.messages.append(user_msg)
     return user_msg
 

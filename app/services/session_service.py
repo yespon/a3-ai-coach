@@ -15,7 +15,7 @@ def _session_history_for_client(session: ChatSession) -> list[dict[str, Any]]:
         history.append(
             {
                 "role": msg.role,
-                "content": msg.content,
+                "content": msg.display_content if msg.display_content is not None else msg.content,
                 "created_at": msg.created_at,
                 "is_context": msg.is_context,
                 "attachments": msg.attachments,
@@ -36,8 +36,11 @@ def _session_summary_for_client(session: ChatSession) -> dict[str, str]:
     latest_preview = "新建会话"
 
     if latest_user_message:
-        # Keep title focused on user's own question, not auto-appended attachment hints.
-        user_text = latest_user_message.content.split("\n\n附件:", 1)[0]
+        user_text = (
+            latest_user_message.display_content
+            if latest_user_message.display_content is not None
+            else latest_user_message.content
+        )
         preview = user_text.strip().replace("\n", " ")
         latest_preview = preview[:40] if preview else "新建会话"
 

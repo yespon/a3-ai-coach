@@ -15,6 +15,9 @@ class ChatMessage:
     is_context: bool = False
     visible_in_history: bool = True
     attachments: list[dict[str, Any]] = field(default_factory=list)
+    # display_content is shown to the frontend; content (with appended file hints)
+    # is sent to the LLM. When None, content is used for both.
+    display_content: str | None = None
 
 
 @dataclass

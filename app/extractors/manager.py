@@ -34,6 +34,10 @@ ATTACHMENT_EXCERPT_CHARS = _int_env("ATTACHMENT_EXCERPT_CHARS", 0, 0)
 # across all subsequent conversation turns.
 ATTACHMENT_HINT_CHARS = _int_env("ATTACHMENT_HINT_CHARS", 0, 0)
 
+# When True, prepend the "附件: <name> (<size> bytes)" meta line to every hint.
+# Defaults to False so the raw extracted content is sent directly without noise.
+ATTACHMENT_SHOW_META = os.getenv("ATTACHMENT_SHOW_META", "").strip().lower() in ("1", "true", "yes")
+
 
 def _extract_attachment_excerpt(raw_bytes: bytes, lower_name: str) -> str:
     if lower_name.endswith((".txt", ".md", ".json", ".csv")):
@@ -90,11 +94,18 @@ async def _save_attachments(
         }
         saved_meta.append(meta)
 
-        hint = f"附件: {safe_name} ({len(raw_bytes)} bytes)"
-        if excerpt:
-            hint += f"\n可读摘要:\n{_clip_text(excerpt, ATTACHMENT_HINT_CHARS)}"
+        if ATTACHMENT_SHOW_META:
+            hint = f"附件: {safe_name} ({len(raw_bytes)} bytes)"
+            if excerpt:
+                hint += f"\n可读摘要:\n{_clip_text(excerpt, ATTACHMENT_HINT_CHARS)}"
+            else:
+                hint += "\n未提取到可读文本（建议使用 txt/md/json/csv/doc/docx/xls/xlsx/pdf，或粘贴关键内容）"
+            attachment_hints.append(hint)
+        elif excerpt:
+            attachment_hints.append(_clip_text(excerpt, ATTACHMENT_HINT_CHARS))
         else:
-            hint += "\n未提取到可读文本（建议使用 txt/md/json/csv/doc/docx/xls/xlsx/pdf，或粘贴关键内容）"
-        attachment_hints.append(hint)
+            attachment_hints.append(
+                f"附件 {safe_name} 未提取到可读文本（建议使用 txt/md/json/csv/doc/docx/xls/xlsx/pdf，或粘贴关键内容）"
+            )
 
     return saved_meta, attachment_hints
