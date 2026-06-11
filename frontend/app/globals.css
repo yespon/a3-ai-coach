@@ -437,10 +437,28 @@ textarea {
 }
 
 .composer-tips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
   padding: 4px 2px 0;
   font-size: 11px;
   color: var(--muted);
   user-select: none;
+}
+
+.composer-tips-sep {
+  color: var(--border, #d9d9d9);
+  margin: 0 2px;
+}
+
+.composer-tips .option-toggle {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
 }
 
 .composer-tips kbd {

@@ -298,10 +298,8 @@ export default function HomePage() {
 
             <div className="composer-tips">
               按 <kbd>Enter</kbd> 发送&nbsp;&nbsp;·&nbsp;&nbsp;<kbd>Shift</kbd> + <kbd>Enter</kbd> 换行
-            </div>
-
-            <div className="controls">
-              <label className="hint option-toggle">
+              <span className="composer-tips-sep">|</span>
+              <label className="option-toggle">
                 <input
                   type="checkbox"
                   checked={streamMode}
