@@ -7,6 +7,17 @@ function endpoint(path: string): string {
   return `${API_BASE}${path}`;
 }
 
+function randomUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback for HTTP (non-secure) contexts where randomUUID is unavailable.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 /**
  * Returns a stable per-browser user ID persisted in localStorage.
  * When authentication is added, replace this with the real user ID from the
@@ -17,7 +28,7 @@ export function getUserId(): string {
   if (typeof window === "undefined") return "anonymous";
   let uid = localStorage.getItem(KEY);
   if (!uid) {
-    uid = crypto.randomUUID();
+    uid = randomUUID();
     localStorage.setItem(KEY, uid);
   }
   return uid;

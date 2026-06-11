@@ -703,7 +703,15 @@
         const KEY = "gb_user_id";
         let uid = localStorage.getItem(KEY);
         if (!uid) {
-          uid = crypto.randomUUID();
+          if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+            uid = crypto.randomUUID();
+          } else {
+            // Fallback for HTTP (non-secure) contexts.
+            uid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+              var r = (Math.random() * 16) | 0;
+              return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+            });
+          }
           localStorage.setItem(KEY, uid);
         }
         return uid;
