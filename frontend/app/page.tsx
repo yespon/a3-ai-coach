@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -133,6 +133,15 @@ export default function HomePage() {
     return created.session_id;
   }
 
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (!busy && (message.trim() || files.length > 0)) {
+        void onSubmit(event as unknown as FormEvent);
+      }
+    }
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!message.trim() && files.length === 0) {
@@ -209,14 +218,14 @@ export default function HomePage() {
             + 新建会话
           </button>
 
-          <label className="hint option-toggle">
+          {/* <label className="hint option-toggle">
             <input
               type="checkbox"
               checked={showContextInHistory}
               onChange={(e) => setShowContextInHistory(e.target.checked)}
             />
             创建时在历史中显示默认上下文
-          </label>
+          </label> */}
 
           <div className="session-list" aria-label="session-list">
             {sessions.map((item) => (
@@ -278,6 +287,7 @@ export default function HomePage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
+                onKeyDown={onKeyDown}
                 placeholder="输入你的问题，支持结合附件进行问答"
                 disabled={busy}
               />
@@ -286,15 +296,17 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="controls">
-              <label className="hint option-toggle">
+            <div className="composer-tips">
+              按 <kbd>Enter</kbd> 发送&nbsp;&nbsp;·&nbsp;&nbsp;<kbd>Shift</kbd> + <kbd>Enter</kbd> 换行
+              {/* <span className="composer-tips-sep">|</span>
+              <label className="option-toggle">
                 <input
                   type="checkbox"
                   checked={streamMode}
                   onChange={(e) => setStreamMode(e.target.checked)}
                 />
                 使用流式回复
-              </label>
+              </label> */}
             </div>
           </form>
 
