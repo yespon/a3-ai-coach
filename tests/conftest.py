@@ -53,3 +53,38 @@ def client() -> Generator[TestClient, None, None]:
     with TestClient(main.app) as c:
         yield c
     main.app.dependency_overrides.clear()
+
+
+def pg_available() -> bool:
+    """Check whether PostgreSQL is reachable at the configured database URL."""
+    import asyncio
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy import text
+    try:
+        engine = create_async_engine(settings.database_url)
+        async def _ping():
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+                return True
+        # Use a short timeout so we don't hang when PG is down
+        asyncio.run(asyncio.wait_for(_ping(), timeout=3))
+        engine.dispose()
+        return True
+    except Exception:
+        return False
+
+
+def pytest_configure(config):
+    """Register the requires_pg marker so pytest doesn't warn about unknown markers."""
+    config.addinivalue_line("markers", "requires_pg: skip test if PostgreSQL is unavailable")
+
+
+@pytest.fixture()
+def auth_client() -> Generator[TestClient, None, None]:
+    """TestClient that does NOT override auth — real JWT + DB flow.
+    Automatically skips if PostgreSQL is not reachable."""
+    if not pg_available():
+        pytest.skip("PostgreSQL not available")
+    # No dependency overrides — we want the real get_db and get_current_user
+    with TestClient(main.app) as c:
+        yield c
