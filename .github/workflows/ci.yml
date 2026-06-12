@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   pull_request:
@@ -9,6 +9,28 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gangbiao_test
+          POSTGRES_USER: gangbiao
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://gangbiao:test_password@localhost:5432/gangbiao_test
+      JWT_SECRET_KEY: ci-test-secret-key-at-least-32-bytes-long!!
+      JWT_ALGORITHM: HS256
+      OPENAI_API_KEY: ""
+      MATERIALS_AUTOLOAD: false
 
     steps:
       - name: Checkout
@@ -37,6 +59,9 @@ jobs:
           if pkgs:
             subprocess.check_call([sys.executable, "-m", "pip", "install", *pkgs])
           PY
+
+      - name: Run database migrations
+        run: alembic upgrade head
 
       - name: Run tests
         run: pytest -q
