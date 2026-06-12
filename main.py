@@ -4,8 +4,6 @@ from app.api.router import legacy_api_router
 from app.api.v1.router import api_v1_router
 from app.core.config import get_cors_allow_origin_regex, get_cors_allow_origins
 from app.core.logger import attach_request_logging_middleware, get_component_logger, setup_logging
-from app.services.context_service import MATERIALS_CONTEXT_CACHE
-from app.services.session_service import SESSIONS
 
 setup_logging()
 

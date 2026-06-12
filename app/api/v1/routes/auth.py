@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 import jwt
 
+from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token, decode_token
@@ -14,28 +14,10 @@ from app.models.schema import (
     TokenResponse,
     UserResponse,
 )
-from app.services.user_service import authenticate_user, create_user, get_user_by_id
+from app.services.user_service import authenticate_user, create_user
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-_bearer_scheme = HTTPBearer()
-
-
-async def _get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Temporary dependency — will be replaced by app.api.deps in Task 6."""
-    try:
-        payload = decode_token(credentials.credentials)
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="invalid_token")
-    if payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="invalid_token_type")
-    user = await get_user_by_id(db, payload["sub"])
-    if not user or not user.is_active:
-        raise HTTPException(status_code=401, detail="user_not_found")
-    return user
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -83,7 +65,7 @@ async def logout():
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(_get_current_user)):
+async def me(current_user: User = Depends(get_current_user)):
     return UserResponse(
         id=str(current_user.id),
         email=current_user.email,
