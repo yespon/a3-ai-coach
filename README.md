@@ -1,12 +1,12 @@
-# 岗位标准化 Chatbot 服务
+﻿# 岗位标准化 Chatbot 服务
 
 ## 功能
 
 - 新建会话时自动加载 `岗位标准化母体.history.json` 作为默认上下文。
 - 可通过开关控制是否在用户对话记录中显示这些默认上下文。
 - 聊天框支持多附件上传，后端会保存附件并把可读文本摘要注入对话。
-- 已支持自动提取可读文本的附件类型：`txt`、`md`、`json`、`csv`、`doc`、`docx`、`xls`、`xlsx`、`pdf`。
-- 支持配置教材目录自动注入：每次新建会话时自动扫描目录并加载可读摘要（无需手工重复上传）。
+- 多用户认证：邮箱注册/登录，JWT access + refresh token。
+- 聊天会话与消息持久化到 PostgreSQL，用户级数据隔离。
 - 未配置 `OPENAI_API_KEY` 时会启用本地回退回复，便于本地联调。
 
 ## 架构
@@ -22,10 +22,10 @@
 uv sync
 ```
 
-2. 启动后端服务
+2. 启动 PostgreSQL（本地开发需要）
 
-```bash
-uv run python main.py
+`ash
+docker compose up postgres -d
 ```
 
 3. 后端地址
