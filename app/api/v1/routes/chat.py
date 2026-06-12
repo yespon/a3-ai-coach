@@ -4,18 +4,19 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import LOGGER, get_current_user_id
+from app.core.database import get_db
 from app.extractors.manager import _save_attachments
-from app.models.chat import ChatMessage
+from app.models.chat import ChatMessage, ChatSession
 from app.services.chat_service import _append_user_message_with_attachments, _finalize_stream_reply
 from app.services.llm_service import _build_model_messages, _call_llm, _call_llm_stream
-from app.services.session_service import SESSIONS, _session_history_for_client
+from app.services.session_service import SESSION_CACHE, _session_history_for_client, get_session_by_id, rebuild_memory_session
 from app.core.config import settings
 from app.services.sse_service import build_delta_event, build_error_event, format_sse_event
 
 router = APIRouter()
-
 
 
 _LLM_PAYLOAD_DEBUG = settings.llm_payload_debug
@@ -60,16 +61,35 @@ def _log_llm_payload_debug(logger, llm_messages: list[dict[str, str]], user_msg:
     )
 
 
+async def _get_or_load_session(session_id: str, user_id: str, db: AsyncSession | None) -> ChatSession | None:
+    """Look up session from cache, falling back to DB when available."""
+    session = SESSION_CACHE.get(session_id)
+    if session and session.user_id == user_id:
+        return session
+    # Try DB fallback
+    if db is not None:
+        try:
+            session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
+            if session_db:
+                session = rebuild_memory_session(session_db)
+                SESSION_CACHE[session_id] = session
+                return session
+        except Exception:
+            pass
+    return None
+
+
 @router.post("/chat")
 async def chat(
     session_id: str = Form(...),
     message: str = Form(...),
     files: list[UploadFile] = File(default=[]),
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    session = SESSIONS.get(session_id)
-    if not session or session.user_id != user_id:
-        raise HTTPException(status_code=404, detail="会话不存在")
+    session = await _get_or_load_session(session_id, user_id, db)
+    if not session:
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
 
     chat_logger = LOGGER.bind(session_id=session_id)
     user_msg = await _append_user_message_with_attachments(
@@ -103,10 +123,11 @@ async def chat_stream(
     message: str = Form(...),
     files: list[UploadFile] = File(default=[]),
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
-    session = SESSIONS.get(session_id)
-    if not session or session.user_id != user_id:
-        raise HTTPException(status_code=404, detail="会话不存在")
+    session = await _get_or_load_session(session_id, user_id, db)
+    if not session:
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
 
     stream_logger = LOGGER.bind(session_id=session_id)
     user_msg = await _append_user_message_with_attachments(
@@ -133,7 +154,7 @@ async def chat_stream(
             return
         except Exception as exc:  # pragma: no cover - defensive branch
             stream_logger.exception("chat_stream_unexpected_error")
-            yield build_error_event(f"流式输出失败: {exc}")
+            yield build_error_event(f"\u6d41\u5f0f\u8f93\u51fa\u5931\u8d25: {exc}")
             return
 
         done_payload = _finalize_stream_reply(

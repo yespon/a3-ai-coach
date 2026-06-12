@@ -13,8 +13,9 @@ if str(PROJECT_ROOT) not in sys.path:
 import main
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.database import get_db
 from app.models.db_models import User
-from app.services.session_service import SESSIONS
+from app.services.session_service import SESSION_CACHE
 from app.services.context_service import MATERIALS_CONTEXT_CACHE
 
 TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -35,10 +36,10 @@ def isolate_runtime_state(monkeypatch: pytest.MonkeyPatch) -> Generator[None, No
     monkeypatch.setenv("OPENAI_API_KEY", "")
     monkeypatch.setattr(settings, "materials_autoload", False)
     monkeypatch.setattr(settings, "openai_api_key", "")
-    SESSIONS.clear()
+    SESSION_CACHE.clear()
     MATERIALS_CONTEXT_CACHE.clear()
     yield
-    SESSIONS.clear()
+    SESSION_CACHE.clear()
     MATERIALS_CONTEXT_CACHE.clear()
 
 
@@ -46,10 +47,12 @@ def isolate_runtime_state(monkeypatch: pytest.MonkeyPatch) -> Generator[None, No
 def client() -> Generator[TestClient, None, None]:
     # Override auth dependencies so tests don't need a real DB or JWT tokens.
     # get_current_user_id depends on get_current_user, so overriding
-    # get_current_user is sufficient — no need to also override get_db.
-    # This will be replaced in Task 7 when auth integration tests are added.
+    # get_current_user is sufficient.
+    # Also override get_db so routes that declare db: AsyncSession = Depends(get_db)
+    # don't try to connect to PostgreSQL during unit tests.
     test_user = _make_test_user()
     main.app.dependency_overrides[get_current_user] = lambda: test_user
+    main.app.dependency_overrides[get_db] = lambda: None
     with TestClient(main.app) as c:
         yield c
     main.app.dependency_overrides.clear()
@@ -81,10 +84,10 @@ def pytest_configure(config):
 
 @pytest.fixture()
 def auth_client() -> Generator[TestClient, None, None]:
-    """TestClient that does NOT override auth — real JWT + DB flow.
+    """TestClient that does NOT override auth -- real JWT + DB flow.
     Automatically skips if PostgreSQL is not reachable."""
     if not pg_available():
         pytest.skip("PostgreSQL not available")
-    # No dependency overrides — we want the real get_db and get_current_user
+    # No dependency overrides -- we want the real get_db and get_current_user
     with TestClient(main.app) as c:
         yield c

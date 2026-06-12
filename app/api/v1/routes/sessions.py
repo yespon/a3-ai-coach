@@ -1,9 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import LOGGER, get_current_user_id
 from app.core.config import CONTEXT_FILE, SUPPORTED_ATTACHMENT_EXTS
+from app.core.database import get_db
 from app.extractors.manager import _extract_attachment_excerpt
 from app.models.chat import ChatSession
 from app.models.schema import (
@@ -13,7 +15,18 @@ from app.models.schema import (
     UpdateSessionSettingsRequest,
 )
 from app.services.context_service import load_default_context_messages, load_materials_context_messages
-from app.services.session_service import SESSIONS, _session_history_for_client, _session_summary_for_client
+from app.services.session_service import (
+    SESSION_CACHE,
+    _session_history_for_client,
+    _session_summary_for_client,
+    create_session_in_db,
+    list_user_sessions,
+    get_session_by_id,
+    update_session_settings,
+    db_session_history_for_client,
+    db_session_summary_for_client,
+    rebuild_memory_session,
+)
 
 router = APIRouter()
 
@@ -22,13 +35,33 @@ router = APIRouter()
 async def create_session(
     req: CreateSessionRequest,
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ) -> SessionResponse:
-    sid = uuid.uuid4().hex
+    # Hybrid mode: persist to DB when available, otherwise pure cache
+    if db is not None:
+        session_db = await create_session_in_db(
+            db=db,
+            user_id=user_id,
+            show_context=req.show_context_in_history,
+            context_file=CONTEXT_FILE.name,
+        )
+        sid = str(session_db.id)
+        created_at = session_db.created_at.isoformat() if session_db.created_at else ""
+        show_context = session_db.show_context
+        context_file = session_db.context_file or CONTEXT_FILE.name
+    else:
+        sid = uuid.uuid4().hex
+        created_at = ""
+        show_context = req.show_context_in_history
+        context_file = CONTEXT_FILE.name
+
+    # Build in-memory ChatSession for LLM runtime cache
     session = ChatSession(
         session_id=sid,
-        show_context_in_history=req.show_context_in_history,
-        context_file=CONTEXT_FILE.name,
+        show_context_in_history=show_context,
+        context_file=context_file,
         user_id=user_id,
+        created_at=created_at,
     )
     session.messages.extend(load_default_context_messages(CONTEXT_FILE, LOGGER))
     session.messages.extend(
@@ -38,7 +71,8 @@ async def create_session(
             logger=LOGGER,
         )
     )
-    SESSIONS[sid] = session
+    SESSION_CACHE[sid] = session
+
     LOGGER.bind(session_id=sid, user_id=user_id).info(
         "session_created show_context_in_history={} message_count={}",
         session.show_context_in_history,
@@ -55,25 +89,50 @@ async def create_session(
 @router.get("/sessions", response_model=list[SessionSummaryResponse])
 async def list_sessions(
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, str]]:
+    # Use DB for listing when available; fall back to cache
+    if db is not None:
+        try:
+            sessions_db = await list_user_sessions(db=db, user_id=user_id)
+            if sessions_db:
+                summaries = [db_session_summary_for_client(s) for s in sessions_db]
+                return sorted(summaries, key=lambda item: item["updated_at"], reverse=True)
+        except Exception:
+            pass  # Fall back to cache-only mode
+
     summaries = [
         _session_summary_for_client(session)
-        for session in SESSIONS.values()
+        for session in SESSION_CACHE.values()
         if session.user_id == user_id
     ]
     return sorted(summaries, key=lambda item: item["updated_at"], reverse=True)
 
 
 @router.patch("/sessions/{session_id}/settings", response_model=SessionResponse)
-async def update_session_settings(
+async def update_session_settings_route(
     session_id: str,
     req: UpdateSessionSettingsRequest,
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ) -> SessionResponse:
-    session = SESSIONS.get(session_id)
+    # Check cache first
+    session = SESSION_CACHE.get(session_id)
     if not session or session.user_id != user_id:
-        raise HTTPException(status_code=404, detail="会话不存在")
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
+
+    # Update in-memory cache
     session.show_context_in_history = req.show_context_in_history
+
+    # Update in DB when available
+    if db is not None:
+        try:
+            session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
+            if session_db:
+                await update_session_settings(db=db, session=session_db, show_context=req.show_context_in_history)
+        except Exception:
+            pass  # Cache-only mode is fine for now
+
     return SessionResponse(
         session_id=session.session_id,
         show_context_in_history=session.show_context_in_history,
@@ -86,10 +145,23 @@ async def update_session_settings(
 async def get_session(
     session_id: str,
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ) -> SessionResponse:
-    session = SESSIONS.get(session_id)
+    # Check cache first
+    session = SESSION_CACHE.get(session_id)
     if not session or session.user_id != user_id:
-        raise HTTPException(status_code=404, detail="会话不存在")
+        # Try loading from DB
+        if db is not None:
+            try:
+                session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
+                if session_db:
+                    session = rebuild_memory_session(session_db)
+                    SESSION_CACHE[session_id] = session
+            except Exception:
+                pass
+    if not session or session.user_id != user_id:
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
+
     return SessionResponse(
         session_id=session.session_id,
         show_context_in_history=session.show_context_in_history,
