@@ -6,6 +6,8 @@ import remarkGfm from "remark-gfm";
 
 import { createSession, getSession, listSessions, sendChat, streamChat } from "@/lib/api";
 import { ChatHistoryItem, SessionSummary } from "@/types/chat";
+import { isAuthenticated, logout, getUserInfo } from "@/lib/auth";
+import type { UserInfo } from "@/types/auth";
 
 export default function HomePage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -19,8 +21,18 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [streamingDraft, setStreamingDraft] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      window.location.href = "/login";
+      return;
+    }
+    getUserInfo().then(setUserInfo).catch(() => setUserInfo(null));
+  }, []);
 
   useEffect(() => {
     void bootstrapSession();
@@ -238,7 +250,27 @@ export default function HomePage() {
                 <div className="session-preview">{item.latest_preview || "(empty)"}</div>
                 <div className="session-id">{item.session_id}</div>
               </button>
-            ))}
+          ))}
+          </div>
+          <div className="sidebar-user-bar">
+            <div className={`user-avatar ${sidebarCollapsed ? "avatar-collapsed" : ""}`} style={{ background: userInfo ? avatarColor(userInfo.email) : "#94a3b8" }}>
+              {userInfo ? userInfo.email.charAt(0).toUpperCase() : "?"}
+            </div>
+            {!sidebarCollapsed && (
+              <div className="user-info">
+                <span className="user-email-masked">{userInfo ? maskEmail(userInfo.email) : "用户"}</span>
+              </div>
+            )}
+            {!sidebarCollapsed && (
+              <button className="user-menu-trigger" type="button" onClick={() => setShowUserMenu((prev) => !prev)}>
+                ⋮
+              </button>
+            )}
+            {showUserMenu && !sidebarCollapsed && (
+              <div className="user-popover">
+                <button type="button" onClick={() => { setShowUserMenu(false); logout(); }}>退出登录</button>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -337,4 +369,20 @@ function formatError(err: unknown): string {
     return err.message;
   }
   return "Unknown error";
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  return `${local.charAt(0)}***@${domain}`;
+}
+
+const AVATAR_COLORS = ["#0ea5e9", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ef4444", "#6366f1", "#14b8a6"];
+
+function avatarColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }

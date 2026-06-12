@@ -1,4 +1,5 @@
 import { ChatResponse, SessionResponse, SessionSummary, StreamEvent } from "@/types/chat";
+import { getAccessToken, refreshToken, logout } from "./auth";
 
 // Default to same-origin API routes to avoid CORS/preflight issues in Docker or LAN access.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "";
@@ -7,41 +8,30 @@ function endpoint(path: string): string {
   return `${API_BASE}${path}`;
 }
 
-function randomUUID(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  // Fallback for HTTP (non-secure) contexts where randomUUID is unavailable.
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
+function authHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/**
- * Returns a stable per-browser user ID persisted in localStorage.
- * When authentication is added, replace this with the real user ID from the
- * auth token/session instead of reading from localStorage.
- */
-export function getUserId(): string {
-  const KEY = "gb_user_id";
-  if (typeof window === "undefined") return "anonymous";
-  let uid = localStorage.getItem(KEY);
-  if (!uid) {
-    uid = randomUUID();
-    localStorage.setItem(KEY, uid);
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers = { ...options.headers, ...authHeaders() };
+  const resp = await fetch(url, { ...options, headers });
+  if (resp.status === 401) {
+    const newToken = await refreshToken();
+    if (newToken) {
+      const retryHeaders = { ...options.headers, Authorization: `Bearer ${newToken}` };
+      return fetch(url, { ...options, headers: retryHeaders });
+    }
+    logout();
+    throw new Error("认证已过期，请重新登录");
   }
-  return uid;
-}
-
-function userHeaders(): Record<string, string> {
-  return { "X-User-ID": getUserId() };
+  return resp;
 }
 
 export async function createSession(showContextInHistory: boolean): Promise<SessionResponse> {
-  const response = await fetch(endpoint("/api/v1/sessions"), {
+  const response = await authFetch(endpoint("/api/v1/sessions"), {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...userHeaders() },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ show_context_in_history: showContextInHistory }),
   });
   if (!response.ok) {
@@ -51,9 +41,8 @@ export async function createSession(showContextInHistory: boolean): Promise<Sess
 }
 
 export async function listSessions(): Promise<SessionSummary[]> {
-  const response = await fetch(endpoint("/api/v1/sessions"), {
+  const response = await authFetch(endpoint("/api/v1/sessions"), {
     cache: "no-store",
-    headers: userHeaders(),
   });
   if (!response.ok) {
     throw new Error(`List sessions failed: ${response.status}`);
@@ -62,9 +51,8 @@ export async function listSessions(): Promise<SessionSummary[]> {
 }
 
 export async function getSession(sessionId: string): Promise<SessionResponse> {
-  const response = await fetch(endpoint(`/api/v1/sessions/${sessionId}`), {
+  const response = await authFetch(endpoint(`/api/v1/sessions/${sessionId}`), {
     cache: "no-store",
-    headers: userHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Get session failed: ${response.status}`);
@@ -82,9 +70,8 @@ export async function sendChat(
   formData.append("message", message);
   files.forEach((file) => formData.append("files", file));
 
-  const response = await fetch(endpoint("/api/v1/chat"), {
+  const response = await authFetch(endpoint("/api/v1/chat"), {
     method: "POST",
-    headers: userHeaders(),
     body: formData,
   });
 
@@ -106,9 +93,8 @@ export async function streamChat(
   formData.append("message", message);
   files.forEach((file) => formData.append("files", file));
 
-  const response = await fetch(endpoint("/api/v1/chat/stream"), {
+  const response = await authFetch(endpoint("/api/v1/chat/stream"), {
     method: "POST",
-    headers: userHeaders(),
     body: formData,
   });
 

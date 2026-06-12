@@ -211,6 +211,99 @@ body {
   color: var(--muted);
 }
 
+.sidebar-user-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  position: relative;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.user-avatar.avatar-collapsed {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-email-masked {
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.user-menu-trigger {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.user-menu-trigger:hover {
+  background: #e2e8f0;
+  color: var(--ink);
+}
+
+.user-popover {
+  position: absolute;
+  bottom: 52px;
+  right: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.user-popover button {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.user-popover button:hover {
+  background: #f1f5f9;
+}
+
+.shell.sidebar-collapsed .sidebar-user-bar {
+  justify-content: center;
+  padding: 8px 0;
+  gap: 0;
+}
+
 .chat {
   background: var(--bg-chat);
   display: grid;
