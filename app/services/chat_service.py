@@ -1,6 +1,7 @@
-from typing import Any
+﻿from typing import Any
 
 from fastapi import HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatMessage, ChatSession
 from app.services.session_service import _session_history_for_client
@@ -10,6 +11,7 @@ async def _append_user_message_with_attachments(
     *,
     session: ChatSession,
     session_id: str,
+    db: AsyncSession | None = None,
     message: str,
     files: list[UploadFile],
     save_attachments,
@@ -36,12 +38,22 @@ async def _append_user_message_with_attachments(
         display_content=user_text if file_hints else None,
     )
     session.messages.append(user_msg)
+    # Persist to DB when available
+    if db is not None:
+        from app.services.message_service import append_message
+        await append_message(
+            db=db, session_id=session_id, role="user",
+            content=final_user_text, display_content=user_msg.display_content,
+            attachments=saved_files,
+        )
     return user_msg
 
 
 def _finalize_stream_reply(
     *,
     session: ChatSession,
+    session_id: str = '',
+    db: AsyncSession | None = None,
     chunks: list[str],
     stream_logger,
 ) -> dict[str, Any]:

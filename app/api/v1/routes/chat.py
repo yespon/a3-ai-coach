@@ -12,6 +12,7 @@ from app.extractors.manager import _save_attachments
 from app.models.chat import ChatMessage, ChatSession
 from app.services.chat_service import _append_user_message_with_attachments, _finalize_stream_reply
 from app.services.llm_service import _build_model_messages, _call_llm, _call_llm_stream
+from app.services.message_service import append_message
 from app.services.session_service import SESSION_CACHE, _session_history_for_client, get_session_by_id, rebuild_memory_session
 from app.core.config import settings
 from app.services.sse_service import build_delta_event, build_error_event, format_sse_event
@@ -95,6 +96,7 @@ async def chat(
     user_msg = await _append_user_message_with_attachments(
         session=session,
         session_id=session_id,
+        db=db,
         message=message,
         files=files,
         save_attachments=_save_attachments,
@@ -109,6 +111,13 @@ async def chat(
     assistant_msg = ChatMessage(role="assistant", content=assistant_text)
     session.messages.append(assistant_msg)
     chat_logger.info("chat_reply_generated reply_chars={}", len(assistant_text))
+
+    # Persist assistant reply to DB when available
+    if db is not None:
+        await append_message(
+            db=db, session_id=session_id, role="assistant",
+            content=assistant_text,
+        )
 
     return {
         "session_id": session.session_id,
@@ -133,6 +142,7 @@ async def chat_stream(
     user_msg = await _append_user_message_with_attachments(
         session=session,
         session_id=session_id,
+        db=db,
         message=message,
         files=files,
         save_attachments=_save_attachments,
@@ -159,9 +169,17 @@ async def chat_stream(
 
         done_payload = _finalize_stream_reply(
             session=session,
+            session_id=session_id,
+            db=db,
             chunks=chunks,
             stream_logger=stream_logger,
         )
+        # Persist assistant reply to DB when available
+        if db is not None:
+            await append_message(
+                db=db, session_id=session_id, role="assistant",
+                content=done_payload["reply"],
+            )
         yield format_sse_event(done_payload)
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
