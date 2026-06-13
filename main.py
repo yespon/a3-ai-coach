@@ -1,14 +1,49 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.router import legacy_api_router
 from app.api.v1.router import api_v1_router
-from app.core.config import get_cors_allow_origin_regex, get_cors_allow_origins
+from app.core.config import get_cors_allow_origin_regex, get_cors_allow_origins, settings
+from app.core.database import async_session_factory
 from app.core.logger import attach_request_logging_middleware, get_component_logger, setup_logging
+from app.services.cas_service import cleanup_expired_sessions
 
 setup_logging()
 
+LOGGER = get_component_logger(component="chatbot")
 
-app = FastAPI(title="Gangbiao Chatbot", version="0.1.0")
+
+async def _session_cleanup_loop():
+    """Background task: periodically clean up expired auth sessions."""
+    while True:
+        await asyncio.sleep(settings.session_cleanup_interval_minutes * 60)
+        try:
+            async with async_session_factory() as db:
+                deleted = await cleanup_expired_sessions(
+                    db, settings.session_cleanup_grace_days
+                )
+                if deleted:
+                    LOGGER.info(f"Session cleanup: removed {deleted} expired sessions")
+        except Exception:
+            LOGGER.exception("Session cleanup failed")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: start background tasks, yield, then cancel."""
+    cleanup_task = asyncio.create_task(_session_cleanup_loop())
+    yield
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(title="Gangbiao Chatbot", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_allow_origins(),
@@ -17,8 +52,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-LOGGER = get_component_logger(component="chatbot")
 
 attach_request_logging_middleware(app, LOGGER)
 app.include_router(legacy_api_router, prefix="/api")

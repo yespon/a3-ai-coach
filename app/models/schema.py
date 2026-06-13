@@ -47,8 +47,13 @@ class RefreshRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    email: str
+    email: str | None
     nickname: str | None
     is_active: bool
     created_at: datetime
+
+
+class CASUserResponse(BaseModel):
+    ok: bool = True
+    user: UserResponse | None = None
 

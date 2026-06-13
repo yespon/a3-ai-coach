@@ -28,3 +28,33 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> User
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     return await db.get(User, user_id)
+
+
+async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict) -> User:
+    """Create or update a CAS SSO user by employee number.
+
+    On first login a new User row is created with provider='cas'.
+    On subsequent logins the nickname and email are refreshed from CAS attributes.
+    """
+    result = await db.execute(
+        select(User).where(User.provider == "cas", User.provider_user_id == employee_no)
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        user = User(
+            provider="cas",
+            provider_user_id=employee_no,
+            email=attrs.get("RJEMAIL"),       # Supplier may not have email
+            nickname=attrs.get("RJXM") or employee_no,
+            password_hash=None,                # SSO user has no local password
+        )
+        db.add(user)
+    else:
+        # Refresh attributes on each login
+        if attrs.get("RJXM"):
+            user.nickname = attrs["RJXM"]
+        if attrs.get("RJEMAIL"):
+            user.email = attrs["RJEMAIL"]
+    await db.commit()
+    await db.refresh(user)
+    return user

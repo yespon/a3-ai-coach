@@ -62,6 +62,26 @@ class Settings(BaseSettings):
     jwt_access_expire_minutes: int = 30
     jwt_refresh_expire_days: int = 7
 
+    # --- CAS / SSO ---
+    auth_mode: str = "both"  # "sso" | "local" | "both"
+    sid_base_url: str = "https://sid.ruijie.com.cn"
+    sid_service_url: str = "https://gangbiao-ai-coach.ruijie.com.cn/login"
+    sid_logout_url: str = "https://sid.ruijie.com.cn/logout"
+    session_cookie_name: str = "sid_session"
+    session_cookie_secure: bool = True
+    session_cookie_samesite: str = "Lax"
+    session_ttl_hours: int = 8
+    session_sliding_refresh_minutes: int = 30
+    cas_validate_timeout_seconds: int = 5
+
+    # --- CSRF ---
+    csrf_cookie_name: str = "csrf_token"
+    csrf_header_name: str = "X-CSRF-Token"
+
+    # --- Session cleanup ---
+    session_cleanup_interval_minutes: int = 60
+    session_cleanup_grace_days: int = 1
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         extra="ignore",
