@@ -330,7 +330,8 @@ export default function HomePage() {
                 type="file"
                 multiple
                 onChange={(e) => {
-                  setFiles((prev) => mergeFiles(prev, Array.from(e.target.files || [])));
+                  const picked = Array.from(e.target.files || []);
+                  setFiles((prev) => mergeFiles(prev, picked));
                   e.target.value = "";
                 }}
                 disabled={busy}
