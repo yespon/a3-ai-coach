@@ -156,8 +156,11 @@ export default function HomePage() {
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
+      // While a reply is in flight, let Enter insert a newline (compose next
+      // message) instead of submitting — sending is locked until reply ends.
+      if (busy) return;
       event.preventDefault();
-      if (!busy && (message.trim() || files.length > 0)) {
+      if (message.trim() || files.length > 0) {
         void onSubmit(event as unknown as FormEvent);
       }
     }
@@ -165,7 +168,9 @@ export default function HomePage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!message.trim() && files.length === 0) {
+    const text = message.trim();
+    const sending = files;
+    if (!text && sending.length === 0) {
       return;
     }
 
@@ -173,14 +178,18 @@ export default function HomePage() {
       setBusy(true);
       setError("");
       setStreamingDraft("");
-      setPendingLabel(files.length > 0 ? "正在解析附件…" : "正在思考…");
+      setPendingLabel(sending.length > 0 ? "正在解析附件…" : "正在思考…");
+      // Optimistic clear: empty the composer immediately so the user can
+      // compose the next message while the reply streams in.
+      setMessage("");
+      setFiles([]);
       const activeSessionId = await ensureSessionId();
 
       if (!streamMode) {
-        const response = await sendChat(activeSessionId, message.trim(), files);
+        const response = await sendChat(activeSessionId, text, sending);
         setHistory(response.history || []);
       } else {
-        await streamChat(activeSessionId, message.trim(), files, (evt) => {
+        await streamChat(activeSessionId, text, sending, (evt) => {
           if (evt.type === "delta") {
             setStreamingDraft((prev) => prev + evt.delta);
           } else if (evt.type === "done") {
@@ -193,11 +202,12 @@ export default function HomePage() {
         });
       }
 
-      setMessage("");
-      setFiles([]);
       await refreshSessions();
     } catch (err) {
       setError(formatError(err));
+      // Restore composer on failure so the user doesn't lose their input.
+      setMessage(text);
+      setFiles(sending);
     } finally {
       setBusy(false);
       setPendingLabel("");
@@ -314,7 +324,7 @@ export default function HomePage() {
                     key={`${f.name}-${idx}`}
                     name={f.name}
                     size={f.size}
-                    disabled={busy}
+                    disabled={busy && !streamingDraft}
                     onRemove={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
                   />
                 ))}
@@ -334,7 +344,7 @@ export default function HomePage() {
                   setFiles((prev) => mergeFiles(prev, picked));
                   e.target.value = "";
                 }}
-                disabled={busy}
+                disabled={busy && !streamingDraft}
               />
               <textarea
                 ref={textareaRef}
@@ -344,10 +354,10 @@ export default function HomePage() {
                 onInput={syncComposerHeight}
                 onKeyDown={onKeyDown}
                 placeholder="输入你的问题，支持结合附件进行问答"
-                disabled={busy}
+                disabled={busy && !streamingDraft}
               />
               <button className="primary send-btn" type="submit" disabled={busy}>
-                {busy ? "发送中" : "发送"}
+                {busy ? (streamingDraft ? "回复中" : "发送中") : "发送"}
               </button>
             </div>
 
