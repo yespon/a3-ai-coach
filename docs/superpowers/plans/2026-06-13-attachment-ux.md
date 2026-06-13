@@ -425,12 +425,15 @@ function mergeFiles(prev: File[], picked: File[]): File[] {
                 type="file"
                 multiple
                 onChange={(e) => {
-                  setFiles((prev) => mergeFiles(prev, Array.from(e.target.files || [])));
+                  const picked = Array.from(e.target.files || []);
+                  setFiles((prev) => mergeFiles(prev, picked));
                   e.target.value = "";
                 }}
                 disabled={busy}
               />
 ```
+
+> 注意：必须先在同步阶段把 `e.target.files` 提取到闭包变量 `picked`，再 `setFiles`。若写成 `setFiles((prev) => mergeFiles(prev, Array.from(e.target.files || [])))`，则 updater 延迟执行时 `e.target.value=""` 已清空 `files`，导致附件加不进去（竞态）。
 
 - [ ] **Step 4: composer 内附件展示从纯文本改为卡片列表**
 
