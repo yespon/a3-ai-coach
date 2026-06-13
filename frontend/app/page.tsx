@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 
 import { createSession, getSession, listSessions, sendChat, streamChat } from "@/lib/api";
 import { ChatHistoryItem, SessionSummary } from "@/types/chat";
-import { checkAuth, logout, getUserInfo, hasSessionHint, hasLocalToken } from "@/lib/auth";
+import { checkAuth, logout, hasSessionHint } from "@/lib/auth";
 import type { UserInfo } from "@/types/auth";
 
 export default function HomePage() {
@@ -27,8 +27,8 @@ export default function HomePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Quick synchronous check — if no hint of auth at all, redirect immediately
-    if (!hasSessionHint() && !hasLocalToken()) {
+    // Quick synchronous check — if no session hint, redirect immediately
+    if (!hasSessionHint()) {
       window.location.href = "/login";
       return;
     }

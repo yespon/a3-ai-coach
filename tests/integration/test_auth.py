@@ -1,42 +1,21 @@
-"""Auth integration tests — real JWT + PostgreSQL flow.
+"""Auth integration tests — session cookie + PostgreSQL flow.
 
-These tests exercise the actual auth endpoints (register, login, refresh, me)
-without any dependency_overrides. They require a running PostgreSQL instance
+These tests exercise the actual auth endpoints (register, login, logout, me)
+with server-side session cookies. They require a running PostgreSQL instance
 and will be automatically skipped when PG is unavailable.
 """
 
-import time
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.security import create_access_token, create_refresh_token
 from app.core.config import settings
+from tests.conftest import pg_available
 
-# ---------------------------------------------------------------------------
-# Module-level skip: if PG is not reachable, every test in this file is skipped.
-# ---------------------------------------------------------------------------
-_pg_available = False
-
-try:
-    import asyncio
-    from sqlalchemy.ext.asyncio import create_async_engine
-    from sqlalchemy import text
-
-    _engine = create_async_engine(settings.database_url)
-
-    async def _ping():
-        async with _engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-            return True
-
-    _pg_available = asyncio.run(asyncio.wait_for(_ping(), timeout=3))
-    _engine.dispose()
-except Exception:
-    _pg_available = False
-
-pytestmark = pytest.mark.skipif(not _pg_available, reason="PostgreSQL not available")
+pytestmark = pytest.mark.skipif(
+    not pg_available(), reason="PostgreSQL not available"
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -53,7 +32,7 @@ def _unique_email() -> str:
 
 
 def _register_user(client: TestClient, email: str | None = None, password: str = "secret123", nickname: str | None = "TestUser"):
-    """Register a user via the /api/v1/auth/register endpoint and return the response."""
+    """Register a user and return (response, email)."""
     email = email or _unique_email()
     resp = client.post(
         "/api/v1/auth/register",
@@ -63,7 +42,7 @@ def _register_user(client: TestClient, email: str | None = None, password: str =
 
 
 def _login_user(client: TestClient, email: str, password: str = "secret123"):
-    """Login via /api/v1/auth/login and return the response."""
+    """Login and return the response."""
     return client.post(
         "/api/v1/auth/login",
         json={"email": email, "password": password},
@@ -76,13 +55,14 @@ def _login_user(client: TestClient, email: str, password: str = "secret123"):
 
 
 def test_register_success(auth_client):
-    """Registering a new user returns 201 with access + refresh tokens."""
+    """Register returns 201 + session cookie + user info."""
     resp, email = _register_user(auth_client)
     assert resp.status_code == 201
     data = resp.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
+    assert data["ok"] is True
+    assert data["user"]["email"] == email
+    # Session cookie must be set
+    assert "sid_session" in resp.cookies
 
 
 def test_register_duplicate_email(auth_client):
@@ -97,7 +77,7 @@ def test_register_duplicate_email(auth_client):
 
 
 def test_login_success(auth_client):
-    """Login with correct credentials returns 200 with tokens."""
+    """Login with correct credentials returns 200 + session cookie."""
     email = _unique_email()
     reg_resp, _ = _register_user(auth_client, email=email)
     assert reg_resp.status_code == 201
@@ -105,8 +85,10 @@ def test_login_success(auth_client):
     login_resp = _login_user(auth_client, email)
     assert login_resp.status_code == 200
     data = login_resp.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
+    assert data["ok"] is True
+    assert data["user"]["email"] == email
+    # Session cookie must be set
+    assert "sid_session" in login_resp.cookies
 
 
 def test_login_wrong_password(auth_client):
@@ -121,79 +103,56 @@ def test_login_wrong_password(auth_client):
 
 
 def test_login_nonexistent_user(auth_client):
-    """Login with an email that doesn't exist returns 401."""
+    """Login with nonexistent email returns 401."""
     login_resp = _login_user(auth_client, "nonexistent@example.com")
     assert login_resp.status_code == 401
     assert login_resp.json()["detail"] == "invalid_credentials"
 
 
-def test_refresh_token(auth_client):
-    """Refreshing with a valid refresh token returns new tokens."""
-    reg_resp, _ = _register_user(auth_client)
+def test_me_with_session_cookie(auth_client):
+    """GET /me with valid session cookie returns user profile."""
+    reg_resp, email = _register_user(auth_client, nickname="CookieTestNick")
     assert reg_resp.status_code == 201
-    refresh_token = reg_resp.json()["refresh_token"]
-
-    refresh_resp = auth_client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": refresh_token},
-    )
-    assert refresh_resp.status_code == 200
-    data = refresh_resp.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    # New tokens should differ from the originals
-    assert data["access_token"] != reg_resp.json()["access_token"]
-
-
-def test_refresh_with_access_token_fails(auth_client):
-    """Using an access token (instead of refresh) on /refresh returns 401."""
-    reg_resp, _ = _register_user(auth_client)
-    assert reg_resp.status_code == 201
-    access_token = reg_resp.json()["access_token"]
-
-    refresh_resp = auth_client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": access_token},
-    )
-    assert refresh_resp.status_code == 401
-    assert refresh_resp.json()["detail"] == "invalid_token_type"
-
-
-def test_me_endpoint(auth_client):
-    """GET /me with a valid access token returns the user profile."""
-    reg_resp, email = _register_user(auth_client, nickname="AuthTestNick")
-    assert reg_resp.status_code == 201
-    access_token = reg_resp.json()["access_token"]
+    session_cookie = reg_resp.cookies.get("sid_session")
+    assert session_cookie is not None
 
     me_resp = auth_client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {access_token}"},
+        cookies={"sid_session": session_cookie},
     )
     assert me_resp.status_code == 200
     data = me_resp.json()
     assert data["email"] == email
-    assert data["nickname"] == "AuthTestNick"
+    assert data["nickname"] == "CookieTestNick"
     assert data["is_active"] is True
     assert "id" in data
     assert "created_at" in data
 
 
-def test_me_without_token(auth_client):
-    """GET /me without an Authorization header returns 401."""
+def test_me_without_cookie(auth_client):
+    """GET /me without session cookie returns 401."""
     me_resp = auth_client.get("/api/v1/auth/me")
     assert me_resp.status_code == 401
 
 
-def test_me_expired_token(auth_client):
-    """GET /me with an expired access token returns 401."""
-    # Create a token that expired 1 second ago
-    from datetime import timedelta
-    expired_token = create_access_token(
-        str(uuid.uuid4()), expires_delta=timedelta(seconds=-1)
+def test_logout_revokes_session(auth_client):
+    """POST /logout revokes session, /me returns 401 after."""
+    reg_resp, _ = _register_user(auth_client)
+    assert reg_resp.status_code == 201
+    session_cookie = reg_resp.cookies.get("sid_session")
+
+    # Logout
+    logout_resp = auth_client.post(
+        "/api/v1/auth/logout",
+        cookies={"sid_session": session_cookie},
+        follow_redirects=False,
     )
+    # Should redirect to SID logout (auth_mode=both by default)
+    assert logout_resp.status_code == 302
+
+    # Session should now be invalid
     me_resp = auth_client.get(
         "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {expired_token}"},
+        cookies={"sid_session": session_cookie},
     )
     assert me_resp.status_code == 401
-    assert me_resp.json()["detail"] == "令牌已过期"

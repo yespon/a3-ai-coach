@@ -1,16 +1,6 @@
-from datetime import timedelta, UTC, datetime
+"""Unit tests for password hashing utilities."""
 
-import jwt
-import pytest
-
-from app.core.config import settings
-from app.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    hash_password,
-    verify_password,
-)
+from app.core.security import hash_password, verify_password
 
 
 def test_hash_and_verify_password():
@@ -23,26 +13,9 @@ def test_verify_wrong_password():
     assert verify_password("wrong", hashed) is False
 
 
-def test_create_access_token_valid():
-    token = create_access_token("user-42")
-    payload = decode_token(token)
-    assert payload["sub"] == "user-42"
-    assert payload["type"] == "access"
-
-
-def test_create_refresh_token_valid():
-    token = create_refresh_token("user-42")
-    payload = decode_token(token)
-    assert payload["sub"] == "user-42"
-    assert payload["type"] == "refresh"
-
-
-def test_expired_token_raises():
-    token = create_access_token("user-42", expires_delta=timedelta(seconds=-1))
-    with pytest.raises(jwt.ExpiredSignatureError):
-        decode_token(token)
-
-
-def test_invalid_token_raises():
-    with pytest.raises(jwt.InvalidTokenError):
-        decode_token("this.is.not.a.jwt")
+def test_hash_produces_different_salts():
+    h1 = hash_password("same_password")
+    h2 = hash_password("same_password")
+    assert h1 != h2  # Different salts each time
+    assert verify_password("same_password", h1) is True
+    assert verify_password("same_password", h2) is True

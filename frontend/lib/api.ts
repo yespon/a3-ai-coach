@@ -1,5 +1,5 @@
 import { ChatResponse, SessionResponse, SessionSummary, StreamEvent } from "@/types/chat";
-import { getAccessToken, refreshToken, logout, getCsrfToken } from "./auth";
+import { logout, getCsrfToken } from "./auth";
 
 // Default to same-origin API routes to avoid CORS/preflight issues in Docker or LAN access.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "";
@@ -8,39 +8,28 @@ function endpoint(path: string): string {
   return `${API_BASE}${path}`;
 }
 
-function authHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
+/**
+ * Fetch with session cookie + CSRF token.
+ * On 401 redirects to login.
+ */
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
 
-  // JWT token (local auth fallback for transition period)
-  const token = getAccessToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  // CSRF token for cookie-session auth (POST/PUT/DELETE)
+  // Add CSRF token for write operations
   const csrf = getCsrfToken();
   if (csrf) {
     headers["X-CSRF-Token"] = csrf;
   }
 
-  return headers;
-}
-
-async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers = { ...options.headers, ...authHeaders() };
   const resp = await fetch(url, {
     ...options,
     headers,
-    credentials: "include", // Always send cookies
+    credentials: "include", // Always send session cookie
   });
 
   if (resp.status === 401) {
-    // Try JWT refresh if we have a token
-    const newToken = await refreshToken();
-    if (newToken) {
-      const retryHeaders = { ...options.headers, ...authHeaders(), Authorization: `Bearer ${newToken}` };
-      return fetch(url, { ...options, headers: retryHeaders, credentials: "include" });
-    }
     logout();
     throw new Error("认证已过期，请重新登录");
   }

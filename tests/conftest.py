@@ -26,6 +26,9 @@ def _make_test_user() -> User:
     user = User()
     user.id = TEST_USER_ID
     user.email = "test@example.com"
+    user.nickname = "TestUser"
+    user.provider = "local"
+    user.provider_user_id = None
     user.is_active = True
     return user
 
@@ -45,11 +48,7 @@ def isolate_runtime_state(monkeypatch: pytest.MonkeyPatch) -> Generator[None, No
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
-    # Override auth dependencies so tests don't need a real DB or JWT tokens.
-    # get_current_user_id depends on get_current_user, so overriding
-    # get_current_user is sufficient.
-    # Also override get_db so routes that declare db: AsyncSession = Depends(get_db)
-    # don't try to connect to PostgreSQL during unit tests.
+    """TestClient with auth overrides — no real DB or session cookies needed."""
     test_user = _make_test_user()
     main.app.dependency_overrides[get_current_user] = lambda: test_user
     main.app.dependency_overrides[get_db] = lambda: None
@@ -69,7 +68,6 @@ def pg_available() -> bool:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
                 return True
-        # Use a short timeout so we don't hang when PG is down
         asyncio.run(asyncio.wait_for(_ping(), timeout=3))
         engine.dispose()
         return True
@@ -84,10 +82,10 @@ def pytest_configure(config):
 
 @pytest.fixture()
 def auth_client() -> Generator[TestClient, None, None]:
-    """TestClient that does NOT override auth -- real JWT + DB flow.
+    """TestClient that does NOT override auth — real session cookie + DB flow.
     Automatically skips if PostgreSQL is not reachable."""
     if not pg_available():
         pytest.skip("PostgreSQL not available")
-    # No dependency overrides -- we want the real get_db and get_current_user
+    # No dependency overrides — we want the real get_db and get_current_user
     with TestClient(main.app) as c:
         yield c
