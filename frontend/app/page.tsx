@@ -8,6 +8,8 @@ import { createSession, getSession, listSessions, sendChat, streamChat } from "@
 import { ChatHistoryItem, SessionSummary } from "@/types/chat";
 import { checkAuth, logout, hasSessionHint } from "@/lib/auth";
 import type { UserInfo } from "@/types/auth";
+import AttachmentCard from "@/components/AttachmentCard";
+import TypingIndicator from "@/components/TypingIndicator";
 
 export default function HomePage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -20,6 +22,7 @@ export default function HomePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [streamingDraft, setStreamingDraft] = useState("");
+  const [pendingLabel, setPendingLabel] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -61,8 +64,6 @@ export default function HomePage() {
     }
     return rows;
   }, [history, streamingDraft]);
-
-  const selectedFileNames = useMemo(() => files.map((file) => file.name), [files]);
 
   async function bootstrapSession() {
     try {
@@ -172,21 +173,8 @@ export default function HomePage() {
       setBusy(true);
       setError("");
       setStreamingDraft("");
+      setPendingLabel(files.length > 0 ? "正在解析附件…" : "正在思考…");
       const activeSessionId = await ensureSessionId();
-
-      // If files attached and message is provided, add a system message immediately
-      if (files.length > 0 && message.trim().length > 0) {
-        setHistory((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "已获取您的岗标材料，正在解析中...",
-            created_at: new Date().toISOString(),
-            is_context: false,
-            attachments: [],
-          },
-        ]);
-      }
 
       if (!streamMode) {
         const response = await sendChat(activeSessionId, message.trim(), files);
@@ -212,6 +200,7 @@ export default function HomePage() {
       setError(formatError(err));
     } finally {
       setBusy(false);
+      setPendingLabel("");
     }
   }
 
@@ -296,17 +285,39 @@ export default function HomePage() {
               <div key={`${item.role}-${index}`} className={`msg-row ${item.role}`}>
                 <div className="msg-role">{item.role === "assistant" ? "Assistant" : "You"}</div>
                 <div className={`msg ${item.role}`}>
+                  {item.attachments && item.attachments.length > 0 ? (
+                    <div className="attachment-list msg-attachments">
+                      {item.attachments.map((a, i) => (
+                        <AttachmentCard key={`${a.filename}-${i}`} name={a.filename} size={a.size} />
+                      ))}
+                    </div>
+                  ) : null}
                   <MessageContent content={item.content} />
                 </div>
               </div>
             ))}
+            {busy && !streamingDraft ? (
+              <div className="msg-row assistant">
+                <div className="msg-role">Assistant</div>
+                <div className="msg assistant">
+                  <TypingIndicator label={pendingLabel || "正在思考…"} />
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <form className="composer" onSubmit={onSubmit}>
-            {selectedFileNames.length > 0 ? (
-              <div className="upload-status" aria-live="polite">
-                <span className="upload-status-label">附件:</span>
-                <span className="upload-status-files">{selectedFileNames.join(", ")}</span>
+            {files.length > 0 ? (
+              <div className="attachment-list" aria-live="polite">
+                {files.map((f, idx) => (
+                  <AttachmentCard
+                    key={`${f.name}-${idx}`}
+                    name={f.name}
+                    size={f.size}
+                    disabled={busy}
+                    onRemove={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                  />
+                ))}
               </div>
             ) : null}
 
@@ -318,7 +329,10 @@ export default function HomePage() {
                 id="chat-file-input"
                 type="file"
                 multiple
-                onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                onChange={(e) => {
+                  setFiles((prev) => mergeFiles(prev, Array.from(e.target.files || [])));
+                  e.target.value = "";
+                }}
                 disabled={busy}
               />
               <textarea
@@ -370,6 +384,18 @@ function MessageContent({ content }: { content: string }) {
       </ReactMarkdown>
     </div>
   );
+}
+
+function mergeFiles(prev: File[], picked: File[]): File[] {
+  const seen = new Set(prev.map((f) => f.name));
+  const merged = [...prev];
+  for (const f of picked) {
+    if (!seen.has(f.name)) {
+      merged.push(f);
+      seen.add(f.name);
+    }
+  }
+  return merged;
 }
 
 function formatError(err: unknown): string {
