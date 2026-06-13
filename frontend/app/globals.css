@@ -462,27 +462,6 @@ body {
   gap: 8px;
 }
 
-.upload-status {
-  border: 1px solid #d1ecff;
-  border-radius: 10px;
-  background: #eff8ff;
-  color: #0b4f73;
-  font-size: 12px;
-  padding: 8px 10px;
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.upload-status-label {
-  font-weight: 700;
-  flex: 0 0 auto;
-}
-
-.upload-status-files {
-  line-height: 1.45;
-}
-
 .composer-box {
   border: 1px solid var(--line-strong);
   border-radius: 14px;
@@ -903,4 +882,108 @@ textarea {
   .send-btn {
     grid-column: 1 / -1;
   }
+}
+
+/* ===== Attachment cards ===== */
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attachment-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.attachment-card-icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.attachment-card-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachment-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-card-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.attachment-card-remove {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #eef2f7;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.attachment-card-remove:hover:not(:disabled) {
+  background: #e0e6ee;
+  color: var(--ink);
+}
+.attachment-card-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Attachments shown inside a sent user bubble */
+.msg-attachments {
+  margin-bottom: 8px;
+}
+
+/* ===== Typing / waiting indicator ===== */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.typing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: breathe 1.4s ease-in-out infinite;
+}
+.typing-label {
+  animation: breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }

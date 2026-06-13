@@ -1,10 +1,17 @@
 export type ChatRole = "user" | "assistant" | "system";
 
+export interface AttachmentMeta {
+  filename: string;
+  content_type?: string | null;
+  size?: number;
+}
+
 export interface ChatHistoryItem {
   role: ChatRole;
   content: string;
   source?: string;
   created_at?: string;
+  attachments?: AttachmentMeta[];   // 后端 history 已返回；前端此前丢弃
 }
 
 export interface SessionResponse {
