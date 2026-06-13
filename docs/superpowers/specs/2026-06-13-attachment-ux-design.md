@@ -103,6 +103,7 @@ export interface ChatHistoryItem {
 ### 4.2 渲染逻辑（`page.tsx`）
 
 - **composer 编辑态**：`files` state（`File[]`）→ 每个渲染 `<AttachmentCard editable onRemove>`
+- **多附件追加**：再次选择文件时**追加**到现有列表（而非覆盖），按文件名去重。当前 `onChange` 是 `setFiles(Array.from(...))`（覆盖），改为 `setFiles(prev => dedupeByName([...prev, ...picked]))`；追加后清空 `input.value` 以便能重选同名文件被去重逻辑正确处理
 - **移除单个**：`setFiles(files.filter((_, i) => i !== idx))`（当前只能整体重选）
 - **用户历史气泡**：`item.attachments?.length` → 在气泡内顶部渲染只读 `<AttachmentCard>`（无 ✕），保证刷新/切会话后附件不丢失
 - **等待占位**：删除第 178-189 行的假消息逻辑；改为发送期间用一个 `pending` 标记，在消息区末尾渲染 `assistant` 占位气泡含 `<TypingIndicator>`
@@ -144,3 +145,4 @@ error
 - `npx tsc --noEmit` 零错误
 - `npx next build` 成功
 - 手动 E2E：选文件 → 卡片显示 → 移除单个 → 发送 → 呼吸动效（解析/思考文案）→ 流式回复 → 切会话后用户气泡仍显示已发送附件卡片
+- 多附件 E2E：分多次选择文件 → 追加而非覆盖 → 同名文件去重 → 多卡片 flex-wrap 横向换行
