@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 
 import { createSession, getSession, listSessions, sendChat, streamChat } from "@/lib/api";
 import { ChatHistoryItem, SessionSummary } from "@/types/chat";
-import { isAuthenticated, logout, getUserInfo } from "@/lib/auth";
+import { checkAuth, logout, getUserInfo, hasSessionHint, hasLocalToken } from "@/lib/auth";
 import type { UserInfo } from "@/types/auth";
 
 export default function HomePage() {
@@ -27,11 +27,19 @@ export default function HomePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    // Quick synchronous check — if no hint of auth at all, redirect immediately
+    if (!hasSessionHint() && !hasLocalToken()) {
       window.location.href = "/login";
       return;
     }
-    getUserInfo().then(setUserInfo).catch(() => setUserInfo(null));
+    // Async verification against backend
+    checkAuth().then((user) => {
+      if (!user) {
+        window.location.href = "/login";
+      } else {
+        setUserInfo(user);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -253,12 +261,12 @@ export default function HomePage() {
           ))}
           </div>
           <div className="sidebar-user-bar">
-            <div className={`user-avatar ${sidebarCollapsed ? "avatar-collapsed" : ""}`} style={{ background: userInfo ? avatarColor(userInfo.email) : "#94a3b8" }}>
-              {userInfo ? userInfo.email.charAt(0).toUpperCase() : "?"}
+            <div className={`user-avatar ${sidebarCollapsed ? "avatar-collapsed" : ""}`} style={{ background: userInfo ? avatarColor(userInfo.nickname || userInfo.email || "U") : "#94a3b8" }}>
+              {userInfo ? (userInfo.nickname || userInfo.email || "U").charAt(0).toUpperCase() : "?"}
             </div>
             {!sidebarCollapsed && (
               <div className="user-info">
-                <span className="user-email-masked">{userInfo ? maskEmail(userInfo.email) : "用户"}</span>
+                <span className="user-email-masked">{userInfo ? (userInfo.nickname || maskEmail(userInfo.email)) : "用户"}</span>
               </div>
             )}
             {!sidebarCollapsed && (
@@ -371,7 +379,8 @@ function formatError(err: unknown): string {
   return "Unknown error";
 }
 
-function maskEmail(email: string): string {
+function maskEmail(email: string | null): string {
+  if (!email) return "用户";
   const [local, domain] = email.split("@");
   if (!domain) return email;
   return `${local.charAt(0)}***@${domain}`;
