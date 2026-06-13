@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import main
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, verify_csrf
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.db_models import User
@@ -48,10 +48,16 @@ def isolate_runtime_state(monkeypatch: pytest.MonkeyPatch) -> Generator[None, No
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
-    """TestClient with auth overrides — no real DB or session cookies needed."""
+    """TestClient with auth overrides — no real DB or session cookies needed.
+
+    Also overrides verify_csrf: these tests exercise business logic, not CSRF
+    (which is covered end-to-end by the real session-cookie flow in test_cas.py
+    and test_auth.py).
+    """
     test_user = _make_test_user()
     main.app.dependency_overrides[get_current_user] = lambda: test_user
     main.app.dependency_overrides[get_db] = lambda: None
+    main.app.dependency_overrides[verify_csrf] = lambda: None
     with TestClient(main.app) as c:
         yield c
     main.app.dependency_overrides.clear()
