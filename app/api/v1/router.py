@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import verify_csrf
+from app.api.v1.routes.admin import router as admin_router
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.cas import router as cas_router
 from app.api.v1.routes.chat import router as chat_router
@@ -13,6 +14,7 @@ api_v1_router.include_router(health_router)
 # (verify_csrf is a no-op for GET/HEAD/OPTIONS.)
 api_v1_router.include_router(sessions_router, dependencies=[Depends(verify_csrf)])
 api_v1_router.include_router(chat_router, dependencies=[Depends(verify_csrf)])
+api_v1_router.include_router(admin_router, dependencies=[Depends(verify_csrf)])
 # auth / cas are NOT CSRF-protected: login/register/exchange happen before a
 # CSRF token cookie exists; /slo is a back-channel call from SID.
 api_v1_router.include_router(auth_router)

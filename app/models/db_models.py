@@ -58,6 +58,23 @@ class AuthSessionDB(Base):
     user: Mapped["User"] = relationship()
 
 
+class SsoUserWhitelistDB(Base):
+    __tablename__ = "sso_user_whitelist"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    employee_no: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), index=True)
+    source: Mapped[str] = mapped_column(String(20), server_default=text("'manual'"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now(UTC)
+    )
+
+
 class ChatSessionDB(Base):
     __tablename__ = "chat_sessions"
 

@@ -1003,3 +1003,14 @@ textarea {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+
+/* Admin whitelist page */
+.admin-page { min-height: 100vh; padding: 24px; background: var(--bg); }
+.admin-card { max-width: 1080px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.admin-actions { display: grid; gap: 12px; margin: 16px 0; }
+.admin-add-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-add-form input { padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-table th, .admin-table td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; }
+.admin-result { color: #0b6b3a; font-size: 13px; }
