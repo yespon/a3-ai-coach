@@ -4,7 +4,7 @@ import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from xml.etree import ElementTree as ET
+from defusedxml import ElementTree as ET
 
 import httpx
 from fastapi import HTTPException

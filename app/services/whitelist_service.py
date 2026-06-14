@@ -41,7 +41,7 @@ def parse_whitelist_excel(raw: bytes) -> ParseResult:
         if idx - 1 > MAX_WHITELIST_ROWS:
             errors.append({"row": idx, "reason": f"超过最大导入行数 {MAX_WHITELIST_ROWS}"})
             break
-        employee_no = _cell_text(row[emp_idx].value if emp_idx < len(row) else None)
+        employee_no = normalize_employee_no(_cell_text(row[emp_idx].value if emp_idx < len(row) else None))
         email = _cell_text(row[email_idx].value if email_idx < len(row) else None) or None
         if not employee_no:
             errors.append({"row": idx, "reason": "工号为空"})
