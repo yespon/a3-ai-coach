@@ -12,6 +12,11 @@ async def test_admin_employee_bypasses_whitelist(monkeypatch):
     await ensure_sso_allowed(object(), "1001", True)
 
 
+def test_normalize_employee_no_trims_whitespace():
+    from app.api.v1.routes.cas import normalize_employee_no
+    assert normalize_employee_no(" 1001 \n") == "1001"
+
+
 @pytest.mark.asyncio
 async def test_non_whitelisted_employee_rejected(monkeypatch):
     async def deny(db, employee_no): return False

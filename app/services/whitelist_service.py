@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.db_models import SsoUserWhitelistDB
 
 WHITELIST_DENY_MESSAGE = "当前账号未开通岗标 AI 教练访问权限，请联系管理员开通。"
+MAX_WHITELIST_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_WHITELIST_ROWS = 50_000
 
 
 @dataclass
@@ -36,6 +38,9 @@ def parse_whitelist_excel(raw: bytes) -> ParseResult:
     latest: dict[str, str | None] = {}
     errors: list[dict[str, Any]] = []
     for idx, row in enumerate(ws.iter_rows(min_row=2), start=2):
+        if idx - 1 > MAX_WHITELIST_ROWS:
+            errors.append({"row": idx, "reason": f"超过最大导入行数 {MAX_WHITELIST_ROWS}"})
+            break
         employee_no = _cell_text(row[emp_idx].value if emp_idx < len(row) else None)
         email = _cell_text(row[email_idx].value if email_idx < len(row) else None) or None
         if not employee_no:
@@ -44,6 +49,10 @@ def parse_whitelist_excel(raw: bytes) -> ParseResult:
         latest[employee_no] = email
     rows = [{"employee_no": k, "email": v} for k, v in latest.items()]
     return ParseResult(rows=rows, errors=errors)
+
+
+def normalize_employee_no(value: str) -> str:
+    return value.strip()
 
 
 def build_whitelist_template() -> bytes:
@@ -81,7 +90,6 @@ async def upsert_whitelist_entry(
         created = True
     else:
         entry.email = email
-        entry.enabled = True
         entry.source = source
         created = False
     return entry, created

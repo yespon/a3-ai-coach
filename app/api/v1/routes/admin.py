@@ -13,7 +13,9 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.db_models import SsoUserWhitelistDB, User
 from app.services.whitelist_service import (
+    MAX_WHITELIST_UPLOAD_BYTES,
     build_whitelist_template,
+    normalize_employee_no,
     parse_whitelist_excel,
     upsert_whitelist_entry,
 )
@@ -64,7 +66,7 @@ async def add_whitelist(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    employee_no = body.employee_no.strip()
+    employee_no = normalize_employee_no(body.employee_no)
     if not employee_no:
         raise HTTPException(status_code=400, detail="工号不能为空")
     entry, _created = await upsert_whitelist_entry(db, employee_no, body.email.strip() if body.email else None, "manual", admin.id)
@@ -107,7 +109,10 @@ async def import_whitelist(
 ):
     if not (file.filename or "").lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="仅支持 .xlsx 文件")
-    parsed = parse_whitelist_excel(await file.read())
+    raw = await file.read(MAX_WHITELIST_UPLOAD_BYTES + 1)
+    if len(raw) > MAX_WHITELIST_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="文件过大")
+    parsed = parse_whitelist_excel(raw)
     created = updated = 0
     for row in parsed.rows:
         entry, was_created = await upsert_whitelist_entry(db, row["employee_no"], row["email"], "excel", admin.id)

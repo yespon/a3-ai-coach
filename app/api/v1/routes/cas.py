@@ -17,7 +17,7 @@ from app.services.cas_service import (
     validate_ticket,
 )
 from app.services.user_service import upsert_sso_user
-from app.services.whitelist_service import WHITELIST_DENY_MESSAGE, is_employee_allowed
+from app.services.whitelist_service import WHITELIST_DENY_MESSAGE, is_employee_allowed, normalize_employee_no
 
 router = APIRouter(prefix="/cas", tags=["cas"])
 
@@ -65,6 +65,7 @@ async def cas_exchange(
         sid_base_url=settings.sid_base_url,
         timeout=settings.cas_validate_timeout_seconds,
     )
+    employee_no = normalize_employee_no(employee_no)
 
     is_admin_employee_no = employee_no in get_admin_employee_no_set()
     await ensure_sso_allowed(db, employee_no, is_admin_employee_no)
