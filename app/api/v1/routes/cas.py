@@ -26,6 +26,10 @@ class ExchangeRequest(BaseModel):
     ticket: str
 
 
+def resolve_employee_no(cas_user: str, attrs: dict) -> str:
+    return normalize_employee_no(attrs.get("RJGH") or cas_user)
+
+
 async def ensure_sso_allowed(
     db: AsyncSession,
     employee_no: str,
@@ -59,13 +63,13 @@ async def cas_exchange(
         raise HTTPException(status_code=403, detail="SSO not enabled")
 
     # Validate ticket with SID
-    employee_no, attrs = await validate_ticket(
+    cas_user, attrs = await validate_ticket(
         ticket=body.ticket,
         service_url=settings.sid_service_url,
         sid_base_url=settings.sid_base_url,
         timeout=settings.cas_validate_timeout_seconds,
     )
-    employee_no = normalize_employee_no(employee_no)
+    employee_no = resolve_employee_no(cas_user, attrs)
 
     is_admin_employee_no = employee_no in get_admin_employee_no_set()
     await ensure_sso_allowed(db, employee_no, is_admin_employee_no)
