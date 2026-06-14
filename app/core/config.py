@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -77,6 +78,14 @@ class Settings(BaseSettings):
     # --- Session cleanup ---
     session_cleanup_interval_minutes: int = 60
     session_cleanup_grace_days: int = 1
+
+    @field_validator("auth_mode")
+    @classmethod
+    def normalize_auth_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"sso", "local", "both"}:
+            raise ValueError("auth_mode must be one of: sso, local, both")
+        return normalized
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
