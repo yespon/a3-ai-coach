@@ -30,11 +30,12 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     return await db.get(User, user_id)
 
 
-async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict) -> User:
+async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_admin: bool = False) -> User:
     """Create or update a CAS SSO user by employee number.
 
     On first login a new User row is created with provider='cas'.
     On subsequent logins the nickname and email are refreshed from CAS attributes.
+    is_admin only promotes — never demotes.
     """
     result = await db.execute(
         select(User).where(User.provider == "cas", User.provider_user_id == employee_no)
@@ -47,6 +48,7 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict) -> Us
             email=attrs.get("RJEMAIL"),       # Supplier may not have email
             nickname=attrs.get("RJXM") or employee_no,
             password_hash=None,                # SSO user has no local password
+            is_admin=is_admin,
         )
         db.add(user)
     else:
@@ -55,6 +57,8 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict) -> Us
             user.nickname = attrs["RJXM"]
         if attrs.get("RJEMAIL"):
             user.email = attrs["RJEMAIL"]
+        if is_admin and not user.is_admin:
+            user.is_admin = True
     await db.commit()
     await db.refresh(user)
     return user

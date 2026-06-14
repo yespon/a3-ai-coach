@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     session_cleanup_interval_minutes: int = 60
     session_cleanup_grace_days: int = 1
 
+    # --- Admin ---
+    admin_employee_nos: str = ""  # comma-separated SSO employee numbers that become admins
+
     @field_validator("auth_mode")
     @classmethod
     def normalize_auth_mode(cls, value: str) -> str:
@@ -103,6 +106,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_admin_employee_no_set() -> set[str]:
+    return {part.strip() for part in settings.admin_employee_nos.split(",") if part.strip()}
 
 
 def get_cors_allow_origins() -> list[str]:
