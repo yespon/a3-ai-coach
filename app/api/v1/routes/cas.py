@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.core.config import get_admin_employee_no_set, settings
 from app.core.database import get_db
 from app.models.db_models import AuthSessionDB
 from app.services.cas_service import (
@@ -17,12 +17,25 @@ from app.services.cas_service import (
     validate_ticket,
 )
 from app.services.user_service import upsert_sso_user
+from app.services.whitelist_service import WHITELIST_DENY_MESSAGE, is_employee_allowed
 
 router = APIRouter(prefix="/cas", tags=["cas"])
 
 
 class ExchangeRequest(BaseModel):
     ticket: str
+
+
+async def ensure_sso_allowed(
+    db: AsyncSession,
+    employee_no: str,
+    is_admin_employee_no: bool,
+) -> None:
+    if is_admin_employee_no:
+        return
+    if await is_employee_allowed(db, employee_no):
+        return
+    raise HTTPException(status_code=403, detail=WHITELIST_DENY_MESSAGE)
 
 
 @router.get("/login")
@@ -53,8 +66,11 @@ async def cas_exchange(
         timeout=settings.cas_validate_timeout_seconds,
     )
 
+    is_admin_employee_no = employee_no in get_admin_employee_no_set()
+    await ensure_sso_allowed(db, employee_no, is_admin_employee_no)
+
     # Upsert SSO user
-    user = await upsert_sso_user(db, employee_no, attrs)
+    user = await upsert_sso_user(db, employee_no, attrs, is_admin=is_admin_employee_no)
 
     # Create session
     user_agent = request.headers.get("user-agent")
