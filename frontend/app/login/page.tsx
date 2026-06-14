@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { casExchange, getCasLoginUrl, login, checkAuth, hasSessionHint, getAuthConfig } from "@/lib/auth";
+import { casExchange, getCasLoginUrl, login, checkAuth, hasSessionHint, getAuthConfig, getAuthModeFallback } from "@/lib/auth";
 import Link from "next/link";
 
 type LoginMode = "choice" | "exchanging" | "local";
@@ -37,10 +37,10 @@ export default function LoginPage() {
       handleCasExchange(ticket);
     }
 
-    // Fetch auth_mode to grey out disabled entry; fall back to "both" on error
+    // Fetch auth_mode to grey out disabled entry; fall back to build-time value on error
     getAuthConfig()
       .then((cfg) => setAuthMode(cfg.auth_mode))
-      .catch(() => setAuthMode("both"));
+      .catch(() => setAuthMode(getAuthModeFallback()));
   }, []);
 
   async function handleCasExchange(ticket: string) {

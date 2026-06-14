@@ -2,6 +2,10 @@ import { UserInfo, CASExchangeResponse } from "@/types/auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "";
 
+export function getAuthModeFallback(): string {
+  return (process.env.NEXT_PUBLIC_AUTH_MODE || "both").trim().toLowerCase();
+}
+
 // ---------- CSRF helper ----------
 
 /** Read the non-httpOnly CSRF cookie set by the backend. */
