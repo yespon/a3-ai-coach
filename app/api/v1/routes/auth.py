@@ -163,5 +163,6 @@ async def me(current_user: User = Depends(get_current_user)):
         email=current_user.email,
         nickname=current_user.nickname,
         is_active=current_user.is_active,
+        is_admin=current_user.is_admin,
         created_at=current_user.created_at,
     )

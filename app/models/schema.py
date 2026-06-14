@@ -42,6 +42,7 @@ class UserResponse(BaseModel):
     email: str | None
     nickname: str | None
     is_active: bool
+    is_admin: bool
     created_at: datetime
 
 class CASUserResponse(BaseModel):
