@@ -1,5 +1,7 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+"""User service — create, authenticate, upsert SSO users."""
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import User
 from app.core.security import hash_password, verify_password
@@ -30,6 +32,17 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     return await db.get(User, user_id)
 
 
+async def _safe_sso_email(db: AsyncSession, email: str | None) -> str | None:
+    if email is None:
+        return None
+    result = await db.execute(
+        select(User.id).where(User.email == email).limit(1)
+    )
+    if result.scalar_one_or_none() is not None:
+        return None
+    return email
+
+
 async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_admin: bool = False) -> User:
     """Create or update a CAS SSO user by employee number.
 
@@ -45,9 +58,9 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_ad
         user = User(
             provider="cas",
             provider_user_id=employee_no,
-            email=attrs.get("RJEMAIL"),       # Supplier may not have email
+            email=await _safe_sso_email(db, attrs.get("RJEMAIL")),
             nickname=attrs.get("RJXM") or employee_no,
-            password_hash=None,                # SSO user has no local password
+            password_hash=None,
             is_admin=is_admin,
         )
         db.add(user)
@@ -56,7 +69,7 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_ad
         if attrs.get("RJXM"):
             user.nickname = attrs["RJXM"]
         if attrs.get("RJEMAIL"):
-            user.email = attrs["RJEMAIL"]
+            user.email = await _safe_sso_email(db, attrs["RJEMAIL"])
         if is_admin and not user.is_admin:
             user.is_admin = True
     await db.commit()
