@@ -1,0 +1,5 @@
+services:
+  backend:
+    env_file:
+      - .env
+      - .env.test   # appended last; its DATABASE_URL overrides .env

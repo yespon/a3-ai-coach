@@ -54,30 +54,43 @@ npm run dev
 2. `frontend`：Next.js 服务（端口 `3000`，仅内网）。
 3. `nginx`：统一入口（对外 `2088`），转发 `/api/*` 到后端，其余路径到前端。
 
-部署步骤：
+> 数据库走外部 k8s PostgreSQL（test / prod 各一套）。base `docker-compose.yml` 不含 `DATABASE_URL`，**必须配合 override 启动**。
+
+### 一次性准备
 
 ```bash
-# 1) 准备后端环境变量
+# 1) 公共环境变量（CORS/SID/AUTH_MODE/cookie 等，不含 DATABASE_URL）
 cp .env.example .env
 
-# 2) 构建并启动
-docker compose up -d --build
-
-# 3) 查看状态
-docker compose ps
+# 2) 数据库连接（含密码，gitignore，按环境二选一或都准备）
+cp .env.test.example .env.test  # 编辑填入测试库密码
+cp .env.prod.example .env.prod  # 编辑填入生产库密码
 ```
 
-验证：
+### 启动
 
 ```bash
-curl -sS http://127.0.0.1:2088/api/health
-curl -sS http://127.0.0.1:2088/
+# 测试环境
+docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --build
+
+# 生产环境
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-停止：
+后端容器启动时自动 `alembic upgrade head` 在外部库的 `postgres` 默认库建表。
+
+### 验证
 
 ```bash
-docker compose down
+docker compose -f docker-compose.yml -f docker-compose.<env>.yml ps
+curl -sS http://127.0.0.1:2088/api/v1/health
+curl -sS http://127.0.0.1:2088/api/v1/auth/config   # 应返回 {"auth_mode": ...}
+```
+
+### 停止
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.<env>.yml down
 ```
 
 ## 测试（TDD）
