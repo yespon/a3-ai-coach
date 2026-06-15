@@ -260,7 +260,6 @@ export default function HomePage() {
                 onClick={() => void onSelectSession(item.session_id)}
               >
                 <div className="session-preview">{item.latest_preview || "(empty)"}</div>
-                <div className="session-id">{item.session_id}</div>
               </button>
           ))}
           </div>
@@ -294,7 +293,7 @@ export default function HomePage() {
         <section className="chat">
           <header className="chat-head">
             <h1>岗标AI教练 Beta</h1>
-            <div className="hint">当前会话: {sessionId || "未选择"}</div>
+            <div className="hint">支持文本与 Excel 附件联合问答</div>
           </header>
 
           <div className="messages" ref={messageListRef}>
@@ -303,7 +302,7 @@ export default function HomePage() {
             ) : null}
             {renderedMessages.map((item, index) => (
               <div key={`${item.role}-${index}`} className={`msg-row ${item.role}`}>
-                <div className="msg-role">{item.role === "assistant" ? "Assistant" : "You"}</div>
+                <div className="msg-role">{item.role === "assistant" ? "教练" : "用户"}</div>
                 <div className={`msg ${item.role}`}>
                   {item.attachments && item.attachments.length > 0 ? (
                     <div className="attachment-list msg-attachments">
@@ -318,7 +317,7 @@ export default function HomePage() {
             ))}
             {busy && !streamingDraft ? (
               <div className="msg-row assistant">
-                <div className="msg-role">Assistant</div>
+                <div className="msg-role">教练</div>
                 <div className="msg assistant">
                   <TypingIndicator label={pendingLabel || "正在思考…"} />
                 </div>

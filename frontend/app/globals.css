@@ -96,7 +96,6 @@ body {
 
 .shell.sidebar-collapsed .sidebar h2,
 .shell.sidebar-collapsed .session-preview,
-.shell.sidebar-collapsed .session-id,
 .shell.sidebar-collapsed .option-toggle {
   display: none;
 }
@@ -204,11 +203,6 @@ body {
 .session-item.active {
   border-color: var(--brand);
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.16);
-}
-
-.session-id {
-  font-size: 11px;
-  color: var(--muted);
 }
 
 .sidebar-user-bar {
