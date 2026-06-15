@@ -298,7 +298,7 @@ export default function HomePage() {
 
           <div className="messages" ref={messageListRef}>
             {renderedMessages.length === 0 ? (
-              <div className="empty-state">开始提问吧，支持文本与附件联合问答。</div>
+              <div className="empty-state">开始提问吧，支持文本与EXCEL（单sheet）附件联合问答。</div>
             ) : null}
             {renderedMessages.map((item, index) => (
               <div key={`${item.role}-${index}`} className={`msg-row ${item.role}`}>
@@ -363,7 +363,7 @@ export default function HomePage() {
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
                 onKeyDown={onKeyDown}
-                placeholder="输入你的问题，支持结合excel附件进行回答"
+                placeholder="输入你的问题，支持结合EXCEL（单sheet）附件进行回答"
                 disabled={busy && !streamingDraft}
               />
               <button
@@ -372,7 +372,7 @@ export default function HomePage() {
                 disabled={busy || !hasDraft}
                 aria-label={busy ? "正在回复" : hasDraft ? "发送" : "请输入内容后发送"}
               >
-                {busy ? <span className="send-stop" /> : <span className="send-arrow">↑</span>}
+                {busy ? <span className="send-stop" /> : <span className="send-arrow" />}
               </button>
             </div>
 

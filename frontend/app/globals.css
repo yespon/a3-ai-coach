@@ -468,7 +468,7 @@ body {
 }
 
 .attach-btn {
-  width: 34px;
+  width: 44px;
   height: 44px;
   border-radius: 10px;
   display: grid;
@@ -477,13 +477,15 @@ body {
   color: #27435d;
   background: transparent;
   user-select: none;
-  font-size: 28px;
+  font-size: 42px;
+  font-weight: 500;
   line-height: 1;
 }
 
 .attach-btn:hover {
-  height: 34px;
+  height: 44px;
   background: #edf2f8;
+  transform: none;
 }
 
 input[type="file"] {
@@ -540,9 +542,11 @@ textarea {
 }
 
 .send-arrow {
-  font-size: 22px;
-  line-height: 1;
-  font-weight: 800;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 15px solid currentColor;
   transform: translateY(-1px);
 }
 
