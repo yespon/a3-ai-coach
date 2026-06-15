@@ -293,7 +293,7 @@ export default function HomePage() {
         <section className="chat">
           <header className="chat-head">
             <h1>岗标AI教练 Beta</h1>
-            <div className="hint">支持文本与 Excel 附件联合问答</div>
+            <div className="hint">当前会话: {sessionId || "未选择"}</div>
           </header>
 
           <div className="messages" ref={messageListRef}>
