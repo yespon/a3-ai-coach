@@ -16,13 +16,12 @@ class FakeSession:
     def __init__(self, user=None, existing_email_users=None):
         self.user = user; self.added = None
         self._existing = existing_email_users or []
+        self._execute_calls = 0
     async def execute(self, stmt):
-        s = str(stmt)
-        if "users.provider" in s:
+        self._execute_calls += 1
+        if self._execute_calls == 1:
             return FakeResult(self.user)
-        if "users.email" in s:
-            return FakeListResult(self._existing)
-        return FakeResult(self.user)
+        return FakeListResult(self._existing)
     def add(self, obj): self.added = obj; self.user = obj
     async def commit(self): pass
     async def refresh(self, obj): obj.id = getattr(obj, "id", uuid.uuid4())
@@ -58,7 +57,29 @@ async def test_upsert_sso_user_only_promotes_admin_never_demotes():
 
 @pytest.mark.asyncio
 async def test_create_sso_user_skips_email_when_local_user_has_same_email():
-    db = FakeSession(existing_email_users=[User(email="liuyanpeng@ruijie.com.cn", provider="local")])
+    local_user = User(email="liuyanpeng@ruijie.com.cn", provider="local")
+    local_user.id = uuid.uuid4()
+    db = FakeSession(existing_email_users=[local_user])
     user = await upsert_sso_user(db, "R09438", {"RJEMAIL": "liuyanpeng@ruijie.com.cn", "RJXM": "A"}, is_admin=False)
     assert user.email is None
+
+
+@pytest.mark.asyncio
+async def test_existing_sso_user_keeps_email_when_same_email_belongs_to_itself():
+    existing = User(provider="cas", provider_user_id="R09438", email="liuyanpeng@ruijie.com.cn", password_hash=None)
+    existing.id = uuid.uuid4()
+    db = FakeSession(existing, existing_email_users=[existing])
+    user = await upsert_sso_user(db, "R09438", {"RJEMAIL": "liuyanpeng@ruijie.com.cn", "RJXM": "A"}, is_admin=False)
+    assert user.email == "liuyanpeng@ruijie.com.cn"
+
+
+@pytest.mark.asyncio
+async def test_existing_sso_user_preserves_old_email_when_new_email_belongs_to_other_user():
+    existing = User(provider="cas", provider_user_id="R09438", email="old@ruijie.com.cn", password_hash=None)
+    existing.id = uuid.uuid4()
+    other = User(email="liuyanpeng@ruijie.com.cn", provider="local")
+    other.id = uuid.uuid4()
+    db = FakeSession(existing, existing_email_users=[other])
+    user = await upsert_sso_user(db, "R09438", {"RJEMAIL": "liuyanpeng@ruijie.com.cn", "RJXM": "A"}, is_admin=False)
+    assert user.email == "old@ruijie.com.cn"
 
