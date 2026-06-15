@@ -32,13 +32,14 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     return await db.get(User, user_id)
 
 
-async def _safe_sso_email(db: AsyncSession, email: str | None) -> str | None:
+async def _safe_sso_email(db: AsyncSession, email: str | None, current_user_id=None) -> str | None:
     if email is None:
         return None
     result = await db.execute(
-        select(User.id).where(User.email == email).limit(1)
+        select(User).where(User.email == email).limit(1)
     )
-    if result.scalar_one_or_none() is not None:
+    owner = result.scalar_one_or_none()
+    if owner is not None and owner.id != current_user_id:
         return None
     return email
 
@@ -69,7 +70,9 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_ad
         if attrs.get("RJXM"):
             user.nickname = attrs["RJXM"]
         if attrs.get("RJEMAIL"):
-            user.email = await _safe_sso_email(db, attrs["RJEMAIL"])
+            safe_email = await _safe_sso_email(db, attrs["RJEMAIL"], user.id)
+            if safe_email is not None:
+                user.email = safe_email
         if is_admin and not user.is_admin:
             user.is_admin = True
     await db.commit()
