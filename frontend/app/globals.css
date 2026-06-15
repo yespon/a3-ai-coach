@@ -475,14 +475,21 @@ body {
 
 .attach-btn {
   width: 34px;
-  height: 34px;
+  height: 44px;
   border-radius: 10px;
   display: grid;
   place-items: center;
   padding: 0;
   color: #27435d;
-  background: #edf2f8;
+  background: transparent;
   user-select: none;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.attach-btn:hover {
+  height: 34px;
+  background: #edf2f8;
 }
 
 input[type="file"] {
@@ -505,7 +512,51 @@ textarea {
 }
 
 .send-btn {
-  min-width: 84px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  box-shadow: none;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
+}
+
+.send-btn-idle {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.send-btn-ready {
+  background: #0f172a;
+  color: #fff;
+}
+
+.send-btn-ready:hover:not(:disabled) {
+  background: #020617;
+  transform: translateY(-1px);
+}
+
+.send-btn-busy {
+  background: #111827;
+  color: #fff;
+  cursor: not-allowed;
+}
+
+.send-arrow {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  transform: translateY(-1px);
+}
+
+.send-stop {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: currentColor;
 }
 
 .composer-tips {
@@ -892,11 +943,11 @@ textarea {
   }
 
   .composer-box {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .send-btn {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 }
 

@@ -27,6 +27,7 @@ export default function HomePage() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -50,8 +51,10 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    messageListRef.current?.scrollTo({ top: messageListRef.current.scrollHeight, behavior: "smooth" });
-  }, [history, streamingDraft]);
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+  }, [history, streamingDraft, pendingLabel, busy]);
 
   useEffect(() => {
     syncComposerHeight();
@@ -64,6 +67,8 @@ export default function HomePage() {
     }
     return rows;
   }, [history, streamingDraft]);
+
+  const hasDraft = message.trim().length > 0 || files.length > 0;
 
   async function bootstrapSession() {
     try {
@@ -319,6 +324,7 @@ export default function HomePage() {
                 </div>
               </div>
             ) : null}
+            <div ref={messagesEndRef} />
           </div>
 
           <form className="composer" onSubmit={onSubmit}>
@@ -358,11 +364,16 @@ export default function HomePage() {
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
                 onKeyDown={onKeyDown}
-                placeholder="输入你的问题，支持结合附件进行问答"
+                placeholder="输入你的问题，支持结合excel附件进行回答"
                 disabled={busy && !streamingDraft}
               />
-              <button className="primary send-btn" type="submit" disabled={busy}>
-                {busy ? (streamingDraft ? "回复中" : "发送中") : "发送"}
+              <button
+                className={`send-btn ${busy ? "send-btn-busy" : hasDraft ? "send-btn-ready" : "send-btn-idle"}`}
+                type="submit"
+                disabled={busy || !hasDraft}
+                aria-label={busy ? "正在回复" : hasDraft ? "发送" : "请输入内容后发送"}
+              >
+                {busy ? <span className="send-stop" /> : <span className="send-arrow">↑</span>}
               </button>
             </div>
 
