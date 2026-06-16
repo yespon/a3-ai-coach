@@ -2,6 +2,7 @@
 
 from io import BytesIO
 
+import pytest
 from openpyxl import Workbook
 
 from app.extractors.spreadsheet import _extract_xlsx_text
@@ -101,3 +102,25 @@ def test_extract_xlsx_does_not_truncate_after_1000_rows():
     # Ensure rows after the old 1000-row hard limit are still present.
     assert "任务1205\t价值1205\t目的1205\t成果1205" in text
     assert "[Raw] ..." not in text
+
+
+def test_extract_xlsx_falls_back_when_openpyxl_load_fails(monkeypatch):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "故障兜底"
+    ws.append(["岗位任务", "客户价值", "目的", "成果"])
+    ws.append(["处理IT系统Case", "提升服务满意度", "快速响应", "一次性解决率提升"])
+
+    buf = BytesIO()
+    wb.save(buf)
+
+    def _raise_load_error(*args, **kwargs):
+        raise ValueError("Colors must be aRGB hex values")
+
+    monkeypatch.setattr("app.extractors.spreadsheet.load_workbook", _raise_load_error)
+
+    text = _extract_xlsx_text(buf.getvalue())
+
+    assert "[Sheet] 故障兜底" in text
+    assert "岗位价值\t岗位任务\t任务目的\t任务成果" in text
+    assert "提升服务满意度\t处理IT系统Case\t快速响应\t一次性解决率提升" in text

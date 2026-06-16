@@ -512,8 +512,10 @@ textarea {
   height: 38px;
   min-width: 38px;
   border-radius: 999px;
+  position: relative;
   display: grid;
   place-items: center;
+  line-height: 0;
   padding: 0;
   box-shadow: none;
   transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
@@ -542,8 +544,12 @@ textarea {
 }
 
 .send-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 24px;
   height: 24px;
+  transform: translate(-50%, -50%);
   fill: none;
   stroke: currentColor;
   stroke-width: 3.6;

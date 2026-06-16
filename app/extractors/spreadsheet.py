@@ -1,6 +1,8 @@
 import re
 from io import BytesIO
 from typing import Any
+from zipfile import ZipFile
+import xml.etree.ElementTree as ET
 
 import xlrd
 from openpyxl import load_workbook
@@ -9,6 +11,10 @@ from app.core.config import settings
 
 _HEADER_SCAN_LIMIT = 12
 _PREVIEW_ROW_LIMIT = 12
+_XLSX_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_XLSX_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_XLSX_PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_XLSX_CELL_REF_RE = re.compile(r"([A-Z]+)(\d+)$")
 _GANGBIAO_COLUMN_ORDER = ("岗位价值", "岗位任务", "任务目的", "任务成果")
 _GANGBIAO_HEADER_ALIASES = {
     "岗位价值": {
@@ -242,13 +248,202 @@ def _rows_to_raw_lines(rows: list[list[str]]) -> list[str]:
     return lines
 
 
+def _parse_xlsx_cell_ref(cell_ref: str) -> tuple[int, int] | None:
+    match = _XLSX_CELL_REF_RE.match(cell_ref or "")
+    if not match:
+        return None
+
+    col_letters, row_text = match.groups()
+    col = 0
+    for ch in col_letters:
+        col = col * 26 + (ord(ch) - ord("A") + 1)
+
+    try:
+        row = int(row_text)
+    except ValueError:
+        return None
+    return row, col
+
+
+def _extract_xlsx_cell_value(
+    cell_elem: ET.Element,
+    ns: dict[str, str],
+    shared_strings: list[str],
+) -> str:
+    cell_type = cell_elem.attrib.get("t")
+
+    if cell_type == "s":
+        v = cell_elem.find("main:v", ns)
+        if v is None or v.text is None:
+            return ""
+        try:
+            index = int(v.text)
+        except ValueError:
+            return ""
+        if 0 <= index < len(shared_strings):
+            return shared_strings[index].strip()
+        return ""
+
+    if cell_type == "inlineStr":
+        chunks = [t.text or "" for t in cell_elem.findall(".//main:t", ns)]
+        return "".join(chunks).strip()
+
+    v = cell_elem.find("main:v", ns)
+    if v is None or v.text is None:
+        return ""
+    return v.text.strip()
+
+
+def _resolve_xlsx_sheet_xml_path(target: str) -> str:
+    normalized = (target or "").replace("\\", "/")
+    if normalized.startswith("/"):
+        return normalized.lstrip("/")
+    if normalized.startswith("xl/"):
+        return normalized
+    return f"xl/{normalized}"
+
+
+def _extract_xlsx_rows_from_sheet_xml(
+    zf: ZipFile,
+    sheet_xml_path: str,
+    shared_strings: list[str],
+) -> list[list[str]]:
+    ns = {"main": _XLSX_MAIN_NS}
+    root = ET.fromstring(zf.read(sheet_xml_path))
+
+    raw_values: dict[tuple[int, int], str] = {}
+    merged_values: dict[tuple[int, int], str] = {}
+    used_rows: set[int] = set()
+    used_cols: set[int] = set()
+
+    for row_elem in root.findall(".//main:sheetData/main:row", ns):
+        row_attr = row_elem.attrib.get("r")
+        default_row = int(row_attr) if row_attr and row_attr.isdigit() else None
+
+        for cell_elem in row_elem.findall("main:c", ns):
+            ref = _parse_xlsx_cell_ref(cell_elem.attrib.get("r", ""))
+            if ref is None:
+                continue
+            row_idx, col_idx = ref
+            if default_row is not None:
+                row_idx = default_row
+
+            value = _extract_xlsx_cell_value(cell_elem, ns, shared_strings)
+            raw_values[(row_idx, col_idx)] = value
+            used_rows.add(row_idx)
+            used_cols.add(col_idx)
+
+    for merge_elem in root.findall(".//main:mergeCells/main:mergeCell", ns):
+        merge_ref = merge_elem.attrib.get("ref", "")
+        if ":" not in merge_ref:
+            continue
+        start_ref, end_ref = merge_ref.split(":", 1)
+        start = _parse_xlsx_cell_ref(start_ref)
+        end = _parse_xlsx_cell_ref(end_ref)
+        if start is None or end is None:
+            continue
+
+        min_row, min_col = start
+        max_row, max_col = end
+        if min_row > max_row:
+            min_row, max_row = max_row, min_row
+        if min_col > max_col:
+            min_col, max_col = max_col, min_col
+
+        top_left = raw_values.get((min_row, min_col), "")
+        if not top_left:
+            continue
+        for row_idx in range(min_row, max_row + 1):
+            for col_idx in range(min_col, max_col + 1):
+                merged_values[(row_idx, col_idx)] = top_left
+                used_rows.add(row_idx)
+                used_cols.add(col_idx)
+
+    if not used_rows or not used_cols:
+        return []
+
+    max_rows = _effective_limit(max(used_rows), _RAW_ROW_LIMIT)
+    max_cols = _effective_limit(max(used_cols), _RAW_COL_LIMIT)
+
+    rows: list[list[str]] = []
+    for row_idx in range(1, max_rows + 1):
+        cells: list[str] = []
+        row_has_value = False
+        for col_idx in range(1, max_cols + 1):
+            value = raw_values.get((row_idx, col_idx), "")
+            if value == "":
+                value = merged_values.get((row_idx, col_idx), "")
+            normalized = _normalize_cell_value(value) if value != "" else ""
+            if normalized:
+                row_has_value = True
+            cells.append(normalized)
+
+        if row_has_value:
+            while cells and cells[-1] == "":
+                cells.pop()
+            rows.append(cells)
+
+    return rows
+
+
+def _extract_xlsx_text_fallback(raw_bytes: bytes) -> str:
+    ns = {
+        "main": _XLSX_MAIN_NS,
+        "rel": _XLSX_REL_NS,
+        "pkgrel": _XLSX_PKG_REL_NS,
+    }
+
+    try:
+        zf = ZipFile(BytesIO(raw_bytes))
+    except Exception:
+        return ""
+
+    lines: list[str] = []
+    try:
+        shared_strings: list[str] = []
+        if "xl/sharedStrings.xml" in zf.namelist():
+            shared_root = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+            for si in shared_root.findall("main:si", ns):
+                parts = [t.text or "" for t in si.findall(".//main:t", ns)]
+                shared_strings.append("".join(parts))
+
+        wb_root = ET.fromstring(zf.read("xl/workbook.xml"))
+        rels_root = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+        rid_to_target = {
+            rel.attrib.get("Id", ""): rel.attrib.get("Target", "")
+            for rel in rels_root.findall("pkgrel:Relationship", ns)
+        }
+
+        for sheet_elem in wb_root.findall("main:sheets/main:sheet", ns):
+            title = sheet_elem.attrib.get("name", "Sheet")
+            rel_id = sheet_elem.attrib.get(f"{{{_XLSX_REL_NS}}}id", "")
+            target = rid_to_target.get(rel_id, "")
+            if not target:
+                continue
+
+            sheet_xml_path = _resolve_xlsx_sheet_xml_path(target)
+            if sheet_xml_path not in zf.namelist():
+                continue
+
+            rows = _extract_xlsx_rows_from_sheet_xml(zf, sheet_xml_path, shared_strings)
+            lines.extend(_build_structured_sheet_preview(title, rows))
+            lines.append("[Raw]")
+            lines.extend(_rows_to_raw_lines(rows))
+
+        return _normalize_gangbiao_labels("\n".join(lines))
+    except Exception:
+        return ""
+    finally:
+        zf.close()
+
+
 def _extract_xlsx_text(raw_bytes: bytes) -> str:
     try:
         # Some files have incorrect dimension metadata (e.g. A1), which breaks
         # read_only iteration. Normal mode is more robust for these workbooks.
         wb = load_workbook(filename=BytesIO(raw_bytes), data_only=False, read_only=False)
     except Exception:
-        return ""
+        return _extract_xlsx_text_fallback(raw_bytes)
 
     lines: list[str] = []
 
