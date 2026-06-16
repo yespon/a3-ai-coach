@@ -44,7 +44,7 @@ async def _safe_sso_email(db: AsyncSession, email: str | None, current_user_id=N
     return email
 
 
-async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_admin: bool = False) -> User:
+async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_admin: bool = False, managed_user=None) -> User:
     """Create or update a CAS SSO user by employee number.
 
     On first login a new User row is created with provider='cas'.
@@ -63,7 +63,10 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_ad
             nickname=attrs.get("RJXM") or employee_no,
             password_hash=None,
             is_admin=is_admin,
+            managed_user=managed_user,
         )
+        if managed_user is not None:
+            user.managed_user_id = managed_user.id
         db.add(user)
     else:
         # Refresh attributes on each login
@@ -73,6 +76,9 @@ async def upsert_sso_user(db: AsyncSession, employee_no: str, attrs: dict, is_ad
             safe_email = await _safe_sso_email(db, attrs["RJEMAIL"], user.id)
             if safe_email is not None:
                 user.email = safe_email
+        if managed_user is not None:
+            user.managed_user = managed_user
+            user.managed_user_id = managed_user.id
         if is_admin and not user.is_admin:
             user.is_admin = True
     await db.commit()

@@ -44,6 +44,10 @@ class UserResponse(BaseModel):
     is_active: bool
     is_admin: bool
     created_at: datetime
+    managed_user_id: str | None = None
+    employee_no: str | None = None
+    primary_role: str | None = None
+    is_coach: bool = False
 
 class CASUserResponse(BaseModel):
     ok: bool = True

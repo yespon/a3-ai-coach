@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import Cookie, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -43,7 +44,12 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="session expired"
         )
 
-    user = await db.get(User, sess.user_id)
+    user_result = await db.execute(
+        select(User)
+        .options(selectinload(User.managed_user))
+        .where(User.id == sess.user_id)
+    )
+    user = user_result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

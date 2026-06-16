@@ -1183,6 +1183,7 @@ async def import_managed_users(
             coach = coach_result.scalar_one_or_none()
             row["coach_id"] = coach.id if coach else None
         row.pop("coach_employee_no", None)
+        row.pop("row", None)
         profile, was_created = await upsert_managed_user(
             db,
             row,
@@ -1195,6 +1196,8 @@ async def import_managed_users(
     await db.commit()
     return {"created": created, "updated": updated, "skipped": len(parsed.errors), "errors": parsed.errors}
 ```
+
+Parsed `row` metadata is only for error reporting and must be stripped before calling `upsert_managed_user`.
 
 - [ ] **Step 6: Update auth response schema with managed role fields**
 

@@ -17,7 +17,7 @@ from app.services.cas_service import (
     validate_ticket,
 )
 from app.services.user_service import upsert_sso_user
-from app.services.whitelist_service import WHITELIST_DENY_MESSAGE, is_employee_allowed, normalize_employee_no
+from app.services.managed_user_service import WHITELIST_DENY_MESSAGE, ensure_managed_user_allowed, normalize_employee_no
 
 router = APIRouter(prefix="/cas", tags=["cas"])
 
@@ -34,12 +34,11 @@ async def ensure_sso_allowed(
     db: AsyncSession,
     employee_no: str,
     is_admin_employee_no: bool,
-) -> None:
-    if is_admin_employee_no:
-        return
-    if await is_employee_allowed(db, employee_no):
-        return
-    raise HTTPException(status_code=403, detail=WHITELIST_DENY_MESSAGE)
+):
+    try:
+        return await ensure_managed_user_allowed(db, employee_no, is_admin_employee_no)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @router.get("/login")
@@ -72,10 +71,10 @@ async def cas_exchange(
     employee_no = resolve_employee_no(cas_user, attrs)
 
     is_admin_employee_no = employee_no in get_admin_employee_no_set()
-    await ensure_sso_allowed(db, employee_no, is_admin_employee_no)
+    managed_user = await ensure_sso_allowed(db, employee_no, is_admin_employee_no)
 
     # Upsert SSO user
-    user = await upsert_sso_user(db, employee_no, attrs, is_admin=is_admin_employee_no)
+    user = await upsert_sso_user(db, employee_no, attrs, is_admin=is_admin_employee_no, managed_user=managed_user)
 
     # Create session
     user_agent = request.headers.get("user-agent")

@@ -1,5 +1,13 @@
 import { getCsrfToken } from "./auth";
-import type { ImportResult, WhitelistEntry } from "@/types/admin";
+import type {
+  AdminConversationDetail,
+  AdminSessionSummary,
+  CoachOption,
+  ConversationUserSummary,
+  ImportResult,
+  ManagedUser,
+  ManagedUserPayload,
+} from "@/types/admin";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "";
 const endpoint = (path: string) => `${API_BASE}${path}`;
@@ -21,36 +29,58 @@ async function adminFetch(path: string, options: RequestInit = {}) {
   return resp;
 }
 
-export async function listWhitelist(): Promise<WhitelistEntry[]> {
-  return (await adminFetch("/api/v1/admin/whitelist", { cache: "no-store" })).json();
+export async function listManagedUsers(): Promise<ManagedUser[]> {
+  return (await adminFetch("/api/v1/admin/users", { cache: "no-store" })).json();
 }
 
-export async function addWhitelistEntry(employee_no: string, email?: string): Promise<WhitelistEntry> {
-  return (await adminFetch("/api/v1/admin/whitelist", {
+export async function createManagedUser(payload: ManagedUserPayload): Promise<ManagedUser> {
+  return (await adminFetch("/api/v1/admin/users", {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({ employee_no, email: email || null }),
+    body: JSON.stringify(payload),
   })).json();
 }
 
-export async function setWhitelistEnabled(id: string, enabled: boolean): Promise<WhitelistEntry> {
-  return (await adminFetch(`/api/v1/admin/whitelist/${id}`, {
+export async function updateManagedUser(id: string, payload: ManagedUserPayload): Promise<ManagedUser> {
+  return (await adminFetch(`/api/v1/admin/users/${id}`, {
     method: "PATCH",
     headers: headers(),
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify(payload),
   })).json();
 }
 
-export async function importWhitelist(file: File): Promise<ImportResult> {
+export async function listCoachOptions(): Promise<CoachOption[]> {
+  return (await adminFetch("/api/v1/admin/users/coaches", { cache: "no-store" })).json();
+}
+
+export async function importManagedUsers(file: File): Promise<ImportResult> {
   const form = new FormData();
   form.append("file", file);
-  return (await adminFetch("/api/v1/admin/whitelist/import", {
+  return (await adminFetch("/api/v1/admin/users/import", {
     method: "POST",
     headers: headers(false),
     body: form,
   })).json();
 }
 
-export function whitelistTemplateUrl(): string {
-  return endpoint("/api/v1/admin/whitelist/template");
+export function managedUsersTemplateUrl(): string {
+  return endpoint("/api/v1/admin/users/template");
+}
+
+export async function listConversationUsers(scope: "mine" | "all"): Promise<ConversationUserSummary[]> {
+  return (await adminFetch(`/api/v1/admin/conversations/users?scope=${encodeURIComponent(scope)}`, {
+    cache: "no-store",
+  })).json();
+}
+
+export async function listConversationSessions(managedUserId: string): Promise<AdminSessionSummary[]> {
+  return (await adminFetch(`/api/v1/admin/conversations/users/${managedUserId}/sessions`, {
+    cache: "no-store",
+  })).json();
+}
+
+export async function getConversationSession(sessionId: string): Promise<AdminConversationDetail> {
+  return (await adminFetch(`/api/v1/admin/conversations/sessions/${sessionId}`, {
+    cache: "no-store",
+  })).json();
 }
