@@ -4,6 +4,10 @@ export interface UserInfo {
   nickname: string | null;
   is_active: boolean;
   is_admin: boolean;
+  managed_user_id: string | null;
+  employee_no: string | null;
+  primary_role: "admin" | "coach" | "student" | null;
+  is_coach: boolean;
   created_at: string;
 }
 

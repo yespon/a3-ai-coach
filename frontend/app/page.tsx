@@ -280,8 +280,8 @@ export default function HomePage() {
             {showUserMenu && !sidebarCollapsed && (
               <div className="user-popover">
                 {userInfo?.is_admin ? (
-                  <button type="button" onClick={() => { window.location.href = "/admin/whitelist"; }}>
-                    白名单管理
+                  <button type="button" onClick={() => { window.location.href = "/admin"; }}>
+                    管理后台
                   </button>
                 ) : null}
                 <button type="button" onClick={() => { setShowUserMenu(false); logout(); }}>退出登录</button>
