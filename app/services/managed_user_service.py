@@ -4,8 +4,11 @@ from typing import Any
 import uuid
 
 from openpyxl import Workbook, load_workbook
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.whitelist_service import MAX_WHITELIST_ROWS
+from app.models.db_models import ManagedUserDB
+from app.services.whitelist_service import MAX_WHITELIST_ROWS, WHITELIST_DENY_MESSAGE
 
 ROLE_LABELS = {"管理员": "admin", "教练": "coach", "学员": "student", "admin": "admin", "coach": "coach", "student": "student"}
 ENABLED_LABELS = {"启用": True, "禁用": False, "true": True, "false": False, "是": True, "否": False}
@@ -141,3 +144,68 @@ def resolve_import_coach_links(rows: list[dict[str, Any]], existing_coach_employ
         if row["primary_role"] == "student" and coach_employee_no and coach_employee_no not in valid_coaches:
             errors.append({"row": row.get("row", idx), "reason": "所属教练工号不存在或不是教练"})
     return errors
+
+
+async def get_managed_user_by_employee_no(db: AsyncSession, employee_no: str) -> ManagedUserDB | None:
+    result = await db.execute(select(ManagedUserDB).where(ManagedUserDB.employee_no == employee_no))
+    return result.scalar_one_or_none()
+
+
+async def ensure_managed_user_allowed(db: AsyncSession, employee_no: str, is_system_admin: bool) -> ManagedUserDB:
+    profile = await get_managed_user_by_employee_no(db, employee_no)
+    if profile is None and is_system_admin:
+        profile = ManagedUserDB(
+            employee_no=employee_no,
+            primary_role="admin",
+            is_coach=False,
+            enabled=True,
+            source="system",
+        )
+        db.add(profile)
+        await db.commit()
+        await db.refresh(profile)
+        return profile
+    if profile is None:
+        raise PermissionError(WHITELIST_DENY_MESSAGE)
+    if not profile.enabled and not is_system_admin:
+        raise PermissionError(WHITELIST_DENY_MESSAGE)
+    if is_system_admin and (profile.primary_role != "admin" or not profile.enabled):
+        profile.primary_role = "admin"
+        profile.enabled = True
+        await db.commit()
+        await db.refresh(profile)
+    return profile
+
+
+async def existing_coach_employee_nos(db: AsyncSession) -> set[str]:
+    result = await db.execute(select(ManagedUserDB).where(ManagedUserDB.primary_role.in_(["admin", "coach"])))
+    profiles = result.scalars().all()
+    return {p.employee_no for p in profiles if is_effective_coach(p.primary_role, p.is_coach)}
+
+
+async def upsert_managed_user(
+    db: AsyncSession,
+    payload: dict[str, Any],
+    source: str,
+    created_by: uuid.UUID | None,
+    admin_employee_nos: set[str],
+) -> tuple[ManagedUserDB, bool]:
+    employee_no = normalize_employee_no(payload["employee_no"])
+    requested = protect_system_admin_patch(employee_no, admin_employee_nos, dict(payload))
+    normalized = normalize_managed_user_role(requested.get("primary_role"), requested.get("is_coach", False), requested.get("coach_id"))
+    requested.update(normalized)
+    result = await db.execute(select(ManagedUserDB).where(ManagedUserDB.employee_no == employee_no))
+    profile = result.scalar_one_or_none()
+    created = profile is None
+    if profile is None:
+        profile = ManagedUserDB(employee_no=employee_no, created_by=created_by)
+        db.add(profile)
+    profile.name = requested.get("name")
+    profile.email = requested.get("email")
+    profile.department_level1 = requested.get("department_level1")
+    profile.primary_role = requested["primary_role"]
+    profile.is_coach = requested["is_coach"]
+    profile.coach_id = requested.get("coach_id") if requested["primary_role"] == "student" else None
+    profile.enabled = requested.get("enabled", True)
+    profile.source = source
+    return profile, created

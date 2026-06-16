@@ -1,15 +1,19 @@
 from io import BytesIO
 
+import pytest
 from openpyxl import Workbook, load_workbook
 
+from app.models.db_models import ManagedUserDB
 from app.services.managed_user_service import (
     MANAGED_USER_TEMPLATE_HEADERS,
     build_managed_user_template,
+    ensure_managed_user_allowed,
     is_effective_coach,
     normalize_managed_user_role,
     parse_managed_user_excel,
     protect_system_admin_patch,
     resolve_import_coach_links,
+    upsert_managed_user,
 )
 
 
@@ -164,3 +168,90 @@ def test_resolve_import_coach_links_rejects_missing_coach():
     ]
     errors = resolve_import_coach_links(rows, existing_coach_employee_nos=set())
     assert errors == [{"row": 2, "reason": "所属教练工号不存在或不是教练"}]
+
+
+class FakeScalarResult:
+    def __init__(self, value):
+        self.value = value
+
+    def scalar_one_or_none(self):
+        return self.value
+
+    def scalars(self):
+        return self
+
+    def all(self):
+        return self.value if isinstance(self.value, list) else []
+
+
+class FakeDb:
+    def __init__(self, execute_values=None):
+        self.execute_values = list(execute_values or [])
+        self.added = []
+        self.committed = False
+        self.refreshed = []
+
+    async def execute(self, stmt):
+        value = self.execute_values.pop(0) if self.execute_values else None
+        return FakeScalarResult(value)
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def commit(self):
+        self.committed = True
+
+    async def refresh(self, obj):
+        self.refreshed.append(obj)
+
+
+@pytest.mark.asyncio
+async def test_ensure_managed_user_allowed_rejects_missing_non_system_admin():
+    db = FakeDb([None])
+    with pytest.raises(PermissionError) as exc:
+        await ensure_managed_user_allowed(db, "1001", False)
+    assert str(exc.value) == "当前账号未开通岗标 AI 教练访问权限，请联系管理员开通。"
+
+
+@pytest.mark.asyncio
+async def test_ensure_managed_user_allowed_allows_enabled_profile():
+    profile = ManagedUserDB(employee_no="1001", enabled=True, primary_role="student", is_coach=False)
+    db = FakeDb([profile])
+    assert await ensure_managed_user_allowed(db, "1001", False) is profile
+
+
+@pytest.mark.asyncio
+async def test_ensure_managed_user_allowed_creates_missing_system_admin_profile():
+    db = FakeDb([None])
+    profile = await ensure_managed_user_allowed(db, "9999", True)
+    assert profile.employee_no == "9999"
+    assert profile.primary_role == "admin"
+    assert profile.enabled is True
+    assert profile in db.added
+    assert db.committed is True
+
+
+@pytest.mark.asyncio
+async def test_upsert_managed_user_updates_existing_profile_without_disabling_system_admin():
+    profile = ManagedUserDB(employee_no="9999", enabled=True, primary_role="admin", is_coach=False)
+    db = FakeDb([profile])
+    updated, created = await upsert_managed_user(
+        db,
+        {
+            "employee_no": "9999",
+            "name": "系统管理员",
+            "email": "admin@example.com",
+            "department_level1": "总部",
+            "primary_role": "student",
+            "is_coach": False,
+            "coach_id": None,
+            "enabled": False,
+        },
+        source="manual",
+        created_by=None,
+        admin_employee_nos={"9999"},
+    )
+    assert created is False
+    assert updated.primary_role == "admin"
+    assert updated.enabled is True
+    assert updated.name == "系统管理员"

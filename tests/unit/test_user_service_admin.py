@@ -3,8 +3,9 @@ import uuid
 import pytest
 from sqlalchemy import text
 
-from app.models.db_models import User
+from app.models.db_models import ManagedUserDB, User
 from app.services.user_service import upsert_sso_user
+from tests.unit.test_managed_user_service import FakeDb
 
 
 class FakeResult:
@@ -82,4 +83,24 @@ async def test_existing_sso_user_preserves_old_email_when_new_email_belongs_to_o
     db = FakeSession(existing, existing_email_users=[other])
     user = await upsert_sso_user(db, "R09438", {"RJEMAIL": "liuyanpeng@ruijie.com.cn", "RJXM": "A"}, is_admin=False)
     assert user.email == "old@ruijie.com.cn"
+
+
+@pytest.mark.asyncio
+async def test_upsert_sso_user_links_managed_profile_on_create():
+    profile = ManagedUserDB(employee_no="1001", email="a@example.com", name="张三")
+    db = FakeDb([None, None])
+    user = await upsert_sso_user(db, "1001", {"RJEMAIL": "a@example.com", "RJXM": "张三"}, managed_user=profile)
+    assert user.managed_user is profile
+    assert user.managed_user_id == profile.id
+
+
+@pytest.mark.asyncio
+async def test_upsert_sso_user_links_managed_profile_on_existing_user():
+    profile = ManagedUserDB(employee_no="1001", email="a@example.com", name="张三")
+    user = User(provider="cas", provider_user_id="1001", email="old@example.com", nickname="Old", password_hash=None)
+    db = FakeDb([user, None])
+    updated = await upsert_sso_user(db, "1001", {"RJEMAIL": "a@example.com", "RJXM": "张三"}, managed_user=profile)
+    assert updated is user
+    assert updated.managed_user is profile
+    assert updated.managed_user_id == profile.id
 
