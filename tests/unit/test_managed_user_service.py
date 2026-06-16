@@ -1,13 +1,15 @@
 from io import BytesIO
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from app.services.managed_user_service import (
     MANAGED_USER_TEMPLATE_HEADERS,
+    build_managed_user_template,
     is_effective_coach,
     normalize_managed_user_role,
+    parse_managed_user_excel,
     protect_system_admin_patch,
-    build_managed_user_template,
+    resolve_import_coach_links,
 )
 
 
@@ -57,3 +59,70 @@ def test_managed_user_template_headers_are_in_confirmed_order():
         "所属教练工号",
         "启用状态",
     ]
+
+
+def _xlsx(rows):
+    wb = Workbook()
+    ws = wb.active
+    for row in rows:
+        ws.append(row)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_parse_managed_user_excel_defaults_student_and_enabled():
+    data = _xlsx([
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        [" 1001 ", "张三", "a@example.com", "研发", None, None, None, None],
+    ])
+    result = parse_managed_user_excel(data)
+    assert result.errors == []
+    assert result.rows == [{
+        "employee_no": "1001",
+        "name": "张三",
+        "email": "a@example.com",
+        "department_level1": "研发",
+        "primary_role": "student",
+        "is_coach": False,
+        "coach_employee_no": None,
+        "enabled": True,
+    }]
+
+
+def test_parse_managed_user_excel_keeps_department_after_email():
+    data = _xlsx([
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["2001", "李教练", "coach@example.com", "销售", "教练", "否", None, "启用"],
+    ])
+    result = parse_managed_user_excel(data)
+    assert result.rows[0]["department_level1"] == "销售"
+    assert result.rows[0]["primary_role"] == "coach"
+    assert result.rows[0]["is_coach"] is True
+
+
+def test_parse_managed_user_excel_rejects_invalid_student_coach_flag():
+    data = _xlsx([
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["1001", "张三", None, None, "学员", "是", None, "启用"],
+    ])
+    result = parse_managed_user_excel(data)
+    assert result.rows == []
+    assert result.errors == [{"row": 2, "reason": "学员不能兼任教练"}]
+
+
+def test_resolve_import_coach_links_accepts_same_batch_coach():
+    rows = [
+        {"employee_no": "2001", "primary_role": "coach", "is_coach": True, "coach_employee_no": None},
+        {"employee_no": "1001", "primary_role": "student", "is_coach": False, "coach_employee_no": "2001"},
+    ]
+    errors = resolve_import_coach_links(rows, existing_coach_employee_nos=set())
+    assert errors == []
+
+
+def test_resolve_import_coach_links_rejects_missing_coach():
+    rows = [
+        {"employee_no": "1001", "primary_role": "student", "is_coach": False, "coach_employee_no": "9999"},
+    ]
+    errors = resolve_import_coach_links(rows, existing_coach_employee_nos=set())
+    assert errors == [{"row": 2, "reason": "所属教练工号不存在或不是教练"}]
