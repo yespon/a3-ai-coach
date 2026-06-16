@@ -21,6 +21,7 @@ from app.models.schema import (
     UserResponse,
 )
 from app.services.cas_service import create_auth_session
+from app.services.managed_user_service import is_effective_coach
 from app.services.user_service import authenticate_user, create_user
 
 
@@ -158,11 +159,24 @@ async def auth_config():
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
+    managed = getattr(current_user, "managed_user", None)
+    managed_user_id = getattr(current_user, "managed_user_id", None)
+    if managed is not None and getattr(managed, "id", None) is not None:
+        managed_user_id = managed.id
+    primary_role = getattr(managed, "primary_role", None) if managed is not None else None
+    is_coach = bool(
+        managed is not None
+        and is_effective_coach(primary_role, getattr(managed, "is_coach", False))
+    )
     return UserResponse(
         id=str(current_user.id),
         email=current_user.email,
         nickname=current_user.nickname,
         is_active=current_user.is_active,
-        is_admin=current_user.is_admin,
+        is_admin=bool(current_user.is_admin or primary_role == "admin"),
         created_at=current_user.created_at,
+        managed_user_id=str(managed_user_id) if managed_user_id else None,
+        employee_no=getattr(managed, "employee_no", None) if managed is not None else None,
+        primary_role=primary_role,
+        is_coach=is_coach,
     )
