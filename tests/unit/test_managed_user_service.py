@@ -87,6 +87,7 @@ def test_parse_managed_user_excel_defaults_student_and_enabled():
         "is_coach": False,
         "coach_employee_no": None,
         "enabled": True,
+        "row": 2,
     }]
 
 
@@ -100,6 +101,43 @@ def test_parse_managed_user_excel_keeps_department_after_email():
     assert result.rows[0]["primary_role"] == "coach"
     assert result.rows[0]["is_coach"] is True
 
+
+def test_parse_managed_user_excel_warns_duplicate_employee_no_and_keeps_last_row():
+    data = _xlsx([
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["1001", "张三", "first@example.com", "研发", "学员", "否", None, "启用"],
+        ["1001", "张三更新", "last@example.com", "销售", "教练", "否", None, "禁用"],
+    ])
+
+    result = parse_managed_user_excel(data)
+
+    assert result.errors == [{"row": 3, "reason": "工号重复，已使用最后一条记录"}]
+    assert result.rows == [{
+        "employee_no": "1001",
+        "name": "张三更新",
+        "email": "last@example.com",
+        "department_level1": "销售",
+        "primary_role": "coach",
+        "is_coach": True,
+        "coach_employee_no": None,
+        "enabled": False,
+        "row": 3,
+    }]
+
+
+def test_missing_coach_after_duplicate_reports_kept_original_row_number():
+    data = _xlsx([
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["1001", "张三", None, None, "学员", "否", None, "启用"],
+        ["1001", "张三更新", None, None, "学员", "否", "9999", "启用"],
+    ])
+
+    parse_result = parse_managed_user_excel(data)
+    errors = resolve_import_coach_links(parse_result.rows, existing_coach_employee_nos=set())
+
+    assert parse_result.errors == [{"row": 3, "reason": "工号重复，已使用最后一条记录"}]
+    assert parse_result.rows[0]["row"] == 3
+    assert errors == [{"row": 3, "reason": "所属教练工号不存在或不是教练"}]
 
 def test_parse_managed_user_excel_rejects_invalid_student_coach_flag():
     data = _xlsx([
