@@ -8,7 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import ManagedUserDB
-from app.services.whitelist_service import WHITELIST_DENY_MESSAGE, MAX_WHITELIST_ROWS, MAX_WHITELIST_UPLOAD_BYTES
 
 ROLE_LABELS = {"管理员": "admin", "教练": "coach", "学员": "student", "admin": "admin", "coach": "coach", "student": "student"}
 ENABLED_LABELS = {"启用": True, "禁用": False, "true": True, "false": False, "是": True, "否": False}
