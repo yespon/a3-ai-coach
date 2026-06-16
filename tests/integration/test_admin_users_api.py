@@ -72,6 +72,26 @@ def test_admin_users_requires_admin(client):
     assert resp.json()["detail"] == "admin_required"
 
 
+def test_admin_users_allows_managed_profile_admin(client):
+    db = FakeAdminDb()
+    user = _user(False)
+    user.managed_user = ManagedUserDB(
+        id=uuid.uuid4(),
+        employee_no="9001",
+        name="托管管理员",
+        primary_role="admin",
+        is_coach=False,
+        enabled=True,
+    )
+    main.app.dependency_overrides[get_current_user] = lambda: user
+    main.app.dependency_overrides[get_db] = lambda: db
+
+    resp = client.get("/api/v1/admin/users")
+
+    assert resp.status_code == 200
+    assert resp.json()[0]["employee_no"] == "1001"
+
+
 def test_admin_users_list_returns_managed_profiles(client):
     db = FakeAdminDb()
     main.app.dependency_overrides[get_current_user] = lambda: _user(True)
@@ -128,6 +148,22 @@ def test_auth_me_includes_managed_profile_fields(client):
     assert data["primary_role"] == "admin"
     assert data["is_coach"] is True
     assert data["is_admin"] is True
+
+
+def test_auth_me_uses_provider_user_id_as_employee_no_without_managed_profile(client):
+    user = _user(False)
+    user.provider_user_id = "7001"
+    user.managed_user_id = uuid.uuid4()
+    main.app.dependency_overrides[get_current_user] = lambda: user
+
+    resp = client.get("/api/v1/auth/me")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["managed_user_id"] == str(user.managed_user_id)
+    assert data["employee_no"] == "7001"
+    assert data["primary_role"] is None
+    assert data["is_admin"] is False
 
 
 

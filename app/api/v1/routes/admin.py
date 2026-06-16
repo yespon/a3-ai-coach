@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user, get_db
 from app.core.config import get_admin_employee_no_set
@@ -33,7 +34,8 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
-    if not user.is_admin:
+    managed = getattr(user, "managed_user", None)
+    if not user.is_admin and not (managed and managed.primary_role == "admin"):
         raise HTTPException(status_code=403, detail="admin_required")
     return user
 
@@ -100,7 +102,7 @@ def _managed_payload_from_profile(profile: ManagedUserDB) -> dict[str, Any]:
 
 
 def _managed_user_row(e: ManagedUserDB) -> dict[str, Any]:
-    coach = getattr(e, "coach", None)
+    coach = e.__dict__.get("coach")
     return {
         "id": str(e.id),
         "employee_no": e.employee_no,
@@ -151,7 +153,11 @@ async def list_managed_users(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    stmt = select(ManagedUserDB).order_by(ManagedUserDB.updated_at.desc())
+    stmt = (
+        select(ManagedUserDB)
+        .options(selectinload(ManagedUserDB.coach))
+        .order_by(ManagedUserDB.updated_at.desc())
+    )
     result = await db.execute(stmt)
     rows = result.scalars().all()
     return [_managed_user_row(e) for e in rows if _matches_filters(e, q, role, enabled)]

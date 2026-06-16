@@ -157,9 +157,13 @@ async def auth_config():
     return {"auth_mode": settings.auth_mode}
 
 
+def _loaded_managed_user(user: User):
+    return user.__dict__.get("managed_user")
+
+
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
-    managed = getattr(current_user, "managed_user", None)
+    managed = _loaded_managed_user(current_user)
     managed_user_id = getattr(current_user, "managed_user_id", None)
     if managed is not None and getattr(managed, "id", None) is not None:
         managed_user_id = managed.id
@@ -176,7 +180,11 @@ async def me(current_user: User = Depends(get_current_user)):
         is_admin=bool(current_user.is_admin or primary_role == "admin"),
         created_at=current_user.created_at,
         managed_user_id=str(managed_user_id) if managed_user_id else None,
-        employee_no=getattr(managed, "employee_no", None) if managed is not None else None,
+        employee_no=(
+            getattr(managed, "employee_no", None)
+            if managed is not None
+            else current_user.provider_user_id
+        ),
         primary_role=primary_role,
         is_coach=is_coach,
     )
