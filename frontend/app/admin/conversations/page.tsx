@@ -30,7 +30,7 @@ export default function AdminConversationsPage() {
       try {
         const user = await checkAuth();
         if (!active) return;
-        const defaultScope: ConversationScope = user?.is_admin && user.is_coach ? "mine" : "all";
+        const defaultScope: ConversationScope = user?.is_coach ? "mine" : "all";
         setCurrentUser(user);
         setScope(defaultScope);
         const conversationUsers = await listConversationUsers(defaultScope);
@@ -266,7 +266,7 @@ function ConversationMessage({ message, index }: { message: ChatHistoryItem; ind
   return (
     <article className={`admin-message ${isAssistant ? "admin-message-assistant" : "admin-message-user"}`}>
       <div className="admin-message-head">
-        <span>{isAssistant ? "AI 教练" : "user"}</span>
+        <span>{isAssistant ? "AI 教练" : "学员"}</span>
         <time>{message.created_at ? formatDate(message.created_at) : `#${index + 1}`}</time>
       </div>
       <div className="admin-message-content">{message.content || "（空消息）"}</div>
