@@ -20,6 +20,7 @@ from app.services.admin_conversation_service import (
     list_conversation_students,
     list_student_sessions,
 )
+from app.services.conversation_summary_service import summarize_conversation
 from app.services.managed_user_service import (
     build_managed_user_template,
     existing_coach_employee_nos,
@@ -410,3 +411,17 @@ async def admin_conversation_session(
     current_user: User = Depends(get_current_user),
 ):
     return await get_conversation_session(db, current_user, session_id)
+
+
+@router.post("/conversations/sessions/{session_id}/summary")
+async def admin_conversation_session_summary(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await summarize_conversation(db, current_user, session_id)
+    return {
+        "summary": result.summary,
+        "sampled_count": result.sampled_count,
+        "total_count": result.total_count,
+    }
