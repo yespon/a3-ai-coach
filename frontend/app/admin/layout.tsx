@@ -11,9 +11,9 @@ function buildNavItems(user: UserInfo | null) {
   if (user.is_admin) {
     return [
       { href: "/admin", label: "概览" },
+      { href: "/admin/conversations", label: "对话历史" },
       { href: "/admin/users", label: "用户管理" },
       { href: "/admin/feedback", label: "意见反馈" },
-      { href: "/admin/conversations", label: "对话历史" },
     ];
   }
   if (user.is_coach) {

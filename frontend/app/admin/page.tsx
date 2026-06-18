@@ -33,6 +33,11 @@ export default function AdminOverviewPage() {
     if (user?.is_admin) {
       return [
         {
+          title: "对话历史",
+          description: "按角色范围查看学员会话，支持会话回放与内容审阅。",
+          href: "/admin/conversations",
+        },
+        {
           title: "用户管理",
           description: "维护人员身份、角色与教练归属，支持单个创建和批量导入。",
           href: "/admin/users",
@@ -41,11 +46,6 @@ export default function AdminOverviewPage() {
           title: "意见反馈",
           description: "查看用户提交的意见与建议,支持状态流转与附件预览。",
           href: "/admin/feedback",
-        },
-        {
-          title: "对话历史",
-          description: "按角色范围查看学员会话，支持会话回放与内容审阅。",
-          href: "/admin/conversations",
         },
       ];
     }
