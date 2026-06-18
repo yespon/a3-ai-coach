@@ -2242,10 +2242,6 @@ FEEDBACK_UPLOAD_DIR = UPLOAD_ROOT / "feedback"
 VALID_STATUSES = {"open", "read", "resolved"}
 
 
-class AsyncMock:  # placeholder; the real one lives in tests via unittest.mock
-    pass
-
-
 @dataclass(slots=True)
 class FeedbackListItem:
     id: uuid.UUID
@@ -2566,7 +2562,7 @@ git commit -m "feat(feedback): public submit endpoint"
 In `app/api/v1/routes/admin.py`, add to the imports:
 
 ```python
-from app.services.feedback_service import get_feedback, list_feedback, mark_status
+from app.services.feedback_service import build_attachment_url, get_feedback, list_feedback, mark_status
 ```
 
 Append at the end of the file:
