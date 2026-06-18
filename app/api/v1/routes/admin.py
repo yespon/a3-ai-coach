@@ -29,13 +29,7 @@ from app.services.managed_user_service import (
     resolve_import_coach_links,
     upsert_managed_user,
 )
-from app.services.whitelist_service import (
-    MAX_WHITELIST_UPLOAD_BYTES,
-    build_whitelist_template,
-    normalize_employee_no,
-    parse_whitelist_excel,
-    upsert_whitelist_entry,
-)
+from app.services.feedback_service import build_attachment_url, get_feedback, list_feedback, mark_status
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -425,3 +419,94 @@ async def admin_conversation_session_summary(
         "sampled_count": result.sampled_count,
         "total_count": result.total_count,
     }
+
+
+@router.get("/feedback")
+async def admin_list_feedback(
+    page: int | None = None,
+    page_size: int | None = None,
+    status: str = "all",
+    q: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.api.v1._pagination import clamp_page, clamp_page_size
+    items, total = await list_feedback(
+        db,
+        page=clamp_page(page),
+        page_size=clamp_page_size(page_size),
+        status=status,
+        q=q,
+    )
+    return {
+        "items": [
+            {
+                "id": str(item.id),
+                "submitter": item.submitter,
+                "content_excerpt": item.content_excerpt,
+                "attachment_count": item.attachment_count,
+                "status": item.status,
+                "created_at": _dt(item.created_at),
+            }
+            for item in items
+        ],
+        "page": clamp_page(page),
+        "page_size": clamp_page_size(page_size),
+        "total": total,
+    }
+
+
+@router.get("/feedback/{feedback_id}")
+async def admin_get_feedback(
+    feedback_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    submission = await get_feedback(db, feedback_id)
+    profile = None
+    if submission.user_id:
+        user_row = await db.get(User, submission.user_id)
+        if user_row and user_row.managed_user_id:
+            profile = await db.get(ManagedUserDB, user_row.managed_user_id)
+    return {
+        "id": str(submission.id),
+        "submitter": {
+            "employee_no": profile.employee_no if profile else None,
+            "name": profile.name if profile else None,
+            "email": profile.email if profile else None,
+            "department_level1": profile.department_level1 if profile else None,
+            "primary_role": profile.primary_role if profile else None,
+        },
+        "content": submission.content,
+        "status": submission.status,
+        "user_agent": submission.user_agent,
+        "ip": submission.ip,
+        "created_at": _dt(submission.created_at),
+        "read_at": _dt(submission.read_at),
+        "resolved_at": _dt(submission.resolved_at),
+        "attachments": [
+            {
+                "id": str(att.id),
+                "filename": att.filename,
+                "content_type": att.content_type,
+                "size": att.size,
+                "url": build_attachment_url(att.saved_path),
+            }
+            for att in submission.attachments
+        ],
+    }
+
+
+class FeedbackPatchRequest(BaseModel):
+    status: str
+
+
+@router.patch("/feedback/{feedback_id}")
+async def admin_patch_feedback(
+    feedback_id: uuid.UUID,
+    body: FeedbackPatchRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    submission = await mark_status(db, feedback_id, body.status)
+    return {"id": str(submission.id), "status": submission.status}
