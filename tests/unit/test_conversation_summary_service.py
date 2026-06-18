@@ -60,12 +60,8 @@ def test_summarize_conversation_returns_payload(monkeypatch):
     monkeypatch.setattr(svc, "resolve_session_for_summary", fake_resolve)
     monkeypatch.setattr(svc, "_call_llm", fake_call_llm)
 
-    result = asyncio_run(summarize_conversation(db, user, fake_session.id))
+    import asyncio
+    result = asyncio.new_event_loop().run_until_complete(summarize_conversation(db, user, fake_session.id))
     assert result.summary == "学员询问了 X, 教练已回复 Y"
     assert result.sampled_count == 2
     assert result.total_count == 2
-
-
-def asyncio_run(coro):
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(coro)
