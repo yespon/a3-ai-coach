@@ -102,7 +102,9 @@
 | `q` | string | None | 模糊匹配工号/姓名/邮箱/一级部门 |
 | `role` | string | None | `admin` / `coach` / `student` |
 | `enabled` | bool | None | |
-| `coach_id` | UUID | None | 学员所属教练；特殊值 `__none__` 表示未分配 |
+| `coach_filter` | string | None | `all` / `unassigned` / `<uuid>`。与 `coach_id` 互斥；前端工具栏只暴露 `coach_filter`，由前端转换为 `coach_id=null` (unassigned) 或 `coach_id=<uuid>` |
+
+> **设计决定**：不在 `coach_id` 上用魔法字符串表达"未分配"；改用并列的 `coach_filter` 字符串枚举（`all` / `unassigned` / `<uuid>`），后端在内部转换为对应 SQL 条件。这样既避免 URL 中出现奇怪值，也方便前端类型化。
 | `department_level1` | string | None | 精确匹配 |
 | `has_email` | bool | None | true=邮箱非空, false=邮箱为空 |
 
@@ -290,7 +292,7 @@ async def summarize_conversation(
 
 `frontend/lib/admin.ts`：
 - `listManagedUsers(filters?, page?, pageSize?)` 返回 `Paginated<ManagedUser>`
-- 新增类型 `Paginated<T>`, `ManagedUserFilters` (q / role / enabled / coach_id / department_level1 / has_email / coach_filter `'all' | 'unassigned' | <uuid>`)
+- 新增类型 `Paginated<T>`, `ManagedUserFilters` (q / role / enabled / department_level1 / has_email / coach_filter `'all' | 'unassigned' | <uuid>`)
 
 `frontend/types/admin.ts`：
 - 新增 `Paginated<T>`, `ManagedUserFilters`
