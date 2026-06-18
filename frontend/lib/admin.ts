@@ -6,7 +6,11 @@ import type {
   ConversationUserSummary,
   ImportResult,
   ManagedUser,
+  ManagedUserCoachFilter,
+  ManagedUserFilters,
+  ManagedUserHasEmail,
   ManagedUserPayload,
+  Paginated,
 } from "@/types/admin";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "";
@@ -29,8 +33,21 @@ async function adminFetch(path: string, options: RequestInit = {}) {
   return resp;
 }
 
-export async function listManagedUsers(): Promise<ManagedUser[]> {
-  return (await adminFetch("/api/v1/admin/users", { cache: "no-store" })).json();
+export async function listManagedUsers(
+  filters: ManagedUserFilters = {},
+  page = 1,
+  pageSize = 30,
+): Promise<Paginated<ManagedUser>> {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("page_size", String(pageSize));
+  if (filters.q?.trim()) params.set("q", filters.q.trim());
+  if (filters.role) params.set("role", filters.role);
+  if (filters.enabled !== null && filters.enabled !== undefined) params.set("enabled", String(filters.enabled));
+  if (filters.coach_filter && filters.coach_filter !== "all") params.set("coach_filter", filters.coach_filter);
+  if (filters.department_level1?.trim()) params.set("department_level1", filters.department_level1.trim());
+  if (filters.has_email === true || filters.has_email === false) params.set("has_email", String(filters.has_email));
+  return (await adminFetch(`/api/v1/admin/users?${params.toString()}`, { cache: "no-store" })).json();
 }
 
 export async function createManagedUser(payload: ManagedUserPayload): Promise<ManagedUser> {
@@ -41,7 +58,7 @@ export async function createManagedUser(payload: ManagedUserPayload): Promise<Ma
   })).json();
 }
 
-export async function updateManagedUser(id: string, payload: ManagedUserPayload): Promise<ManagedUser> {
+export async function updateManagedUser(id: string, payload: Partial<ManagedUserPayload>): Promise<ManagedUser> {
   return (await adminFetch(`/api/v1/admin/users/${id}`, {
     method: "PATCH",
     headers: headers(),
