@@ -6,11 +6,28 @@ import { useEffect, useState } from "react";
 import { checkAuth, logout } from "@/lib/auth";
 import type { UserInfo } from "@/types/auth";
 
-const navItems = [
-  { href: "/admin", label: "概览" },
-  { href: "/admin/users", label: "用户管理" },
-  { href: "/admin/conversations", label: "对话历史" },
-];
+function buildNavItems(user: UserInfo | null) {
+  if (!user) return [];
+  if (user.is_admin) {
+    return [
+      { href: "/admin", label: "概览" },
+      { href: "/admin/users", label: "用户管理" },
+      { href: "/admin/feedback", label: "意见反馈" },
+      { href: "/admin/conversations", label: "对话历史" },
+    ];
+  }
+  if (user.is_coach) {
+    return [{ href: "/admin/conversations", label: "对话历史" }];
+  }
+  return [];
+}
+
+function canAccessPath(pathname: string, user: UserInfo | null) {
+  if (!user) return false;
+  if (user.is_admin) return true;
+  if (user.is_coach) return pathname.startsWith("/admin/conversations") || pathname === "/admin";
+  return false;
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -43,7 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!user?.is_admin) {
+  if (!(user?.is_admin || user?.is_coach)) {
     return (
       <main className="admin-auth-state">
         <div className="admin-card admin-center-card">
@@ -60,6 +77,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const displayName = user.nickname || user.employee_no || user.email || "管理员";
   const activePath = pathname || "/admin";
+  const navItems = buildNavItems(user);
+  const canAccess = canAccessPath(activePath, user);
+  const roleLabel = user.is_admin ? "管理员" : "教练";
+
+  if (!canAccess) {
+    return (
+      <main className="admin-auth-state">
+        <div className="admin-card admin-center-card">
+          <p className="admin-kicker">Access Control</p>
+          <h1>无权限访问</h1>
+          <p>当前角色无法访问该页面，请进入你有权限的模块继续查看。</p>
+          <div className="admin-actions-row">
+            {user.is_coach ? (
+              <Link className="admin-button admin-button-primary" href="/admin/conversations">
+                进入对话历史
+              </Link>
+            ) : null}
+            <Link className="admin-button admin-button-muted" href="/">
+              返回聊天首页
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="admin-shell">
@@ -81,26 +123,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             );
           })}
         </nav>
+        <div className="admin-user-bar">
+          <Link className="admin-user-bar-return" href="/">
+            ← 返回聊天首页
+          </Link>
+          <div className="admin-user-bar-row">
+            <span className="admin-user-avatar">{displayName.charAt(0)}</span>
+            <div className="admin-user-info">
+              <strong>{displayName}</strong>
+              {user.email ? <span>{user.email}</span> : null}
+              <span className="admin-user-role">{roleLabel}</span>
+            </div>
+            <button className="admin-user-bar-link admin-user-bar-link--danger" type="button" onClick={() => void logout()}>
+              退出
+            </button>
+          </div>
+        </div>
       </aside>
 
       <section className="admin-workspace">
-        <header className="admin-topbar">
-          <div>
-            <p className="admin-kicker">当前管理员</p>
-            <div className="admin-user-line">
-              <strong>{displayName}</strong>
-              {user.email ? <span>{user.email}</span> : null}
-            </div>
-          </div>
-          <div className="admin-topbar-actions">
-            <Link className="admin-button admin-button-muted" href="/">
-              返回聊天首页
-            </Link>
-            <button className="admin-button admin-button-danger" type="button" onClick={() => void logout()}>
-              退出登录
-            </button>
-          </div>
-        </header>
         <main className="admin-main">{children}</main>
       </section>
     </div>
