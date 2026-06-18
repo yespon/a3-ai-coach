@@ -24,7 +24,11 @@ def is_coach_user(user: User) -> bool:
 
 
 def default_conversation_scope(user: User) -> str:
-    return "mine" if is_admin_user(user) and is_coach_user(user) else "all"
+    if is_coach_user(user):
+        return "mine"
+    if is_admin_user(user):
+        return "all"
+    raise HTTPException(status_code=403, detail="conversation_forbidden")
 
 
 def can_view_student(user: User, student: ManagedUserDB, scope: str) -> bool:
@@ -40,12 +44,14 @@ def _require_conversation_access(user: User, student: ManagedUserDB, scope: str)
 
 
 def _student_row(student: ManagedUserDB, session_count: int, latest_session_at: Any) -> dict[str, Any]:
+    coach = getattr(student, "coach", None)
     return {
         "managed_user_id": str(student.id),
         "employee_no": student.employee_no,
         "name": student.name,
         "department_level1": student.department_level1,
         "coach_id": str(student.coach_id) if student.coach_id else None,
+        "coach_name": getattr(coach, "name", None) if coach else None,
         "session_count": session_count,
         "latest_session_at": latest_session_at.isoformat() if latest_session_at else None,
     }
@@ -57,7 +63,12 @@ async def list_conversation_students(db: AsyncSession, user: User, scope: str) -
     if scope == "all" and not is_admin_user(user):
         raise HTTPException(status_code=403, detail="conversation_forbidden")
 
-    stmt = select(ManagedUserDB).where(ManagedUserDB.primary_role == "student").order_by(ManagedUserDB.employee_no)
+    stmt = (
+        select(ManagedUserDB)
+        .options(selectinload(ManagedUserDB.coach))
+        .where(ManagedUserDB.primary_role == "student")
+        .order_by(ManagedUserDB.employee_no)
+    )
     if scope == "mine":
         managed = getattr(user, "managed_user", None)
         if not managed or not is_coach_user(user):
@@ -132,3 +143,25 @@ async def get_conversation_session(db: AsyncSession, user: User, session_id: uui
         "updated_at": session.updated_at.isoformat() if session.updated_at else "",
         "history": db_session_history_for_client(session),
     }
+
+
+async def resolve_session_for_summary(
+    db: AsyncSession, user: User, session_id: uuid.UUID
+) -> ChatSessionDB:
+    """Same permission check as `get_conversation_session`, but returns the ORM row."""
+    result = await db.execute(
+        select(ChatSessionDB)
+        .options(
+            selectinload(ChatSessionDB.user).selectinload(User.managed_user),
+            selectinload(ChatSessionDB.messages),
+        )
+        .where(ChatSessionDB.id == session_id)
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="session_not_found")
+    student = session.user.managed_user
+    if student is None:
+        raise HTTPException(status_code=404, detail="student_not_found")
+    _require_conversation_access(user, student, "all" if is_admin_user(user) else "mine")
+    return session

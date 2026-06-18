@@ -1,12 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.api.router import legacy_api_router
 from app.api.v1.router import api_v1_router
-from app.core.config import get_cors_allow_origin_regex, get_cors_allow_origins, settings
+from app.core.config import get_cors_allow_origin_regex, get_cors_allow_origins, settings, UPLOAD_ROOT
 from app.core.database import async_session_factory
 from app.core.logger import attach_request_logging_middleware, get_component_logger, setup_logging
 from app.services.cas_service import cleanup_expired_sessions
@@ -65,6 +66,20 @@ async def index() -> dict[str, str]:
         "status": "ok",
         "version": "0.1.0",
     }
+
+
+@app.get("/uploads/{rest_of_path:path}")
+async def serve_upload(rest_of_path: str):
+    """Serve feedback uploads. Any path outside /uploads/feedback/... is rejected."""
+    if not rest_of_path.startswith("feedback/"):
+        raise HTTPException(status_code=404, detail="not_found")
+    target = (UPLOAD_ROOT / rest_of_path).resolve()
+    feedback_root = (UPLOAD_ROOT / "feedback").resolve()
+    if feedback_root not in target.parents and target != feedback_root:
+        raise HTTPException(status_code=404, detail="not_found")
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="not_found")
+    return FileResponse(str(target))
 
 
 if __name__ == "__main__":

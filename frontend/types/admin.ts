@@ -50,6 +50,7 @@ export interface ConversationUserSummary {
   name: string | null;
   department_level1: string | null;
   coach_id: string | null;
+  coach_name: string | null;
   session_count: number;
   latest_session_at: string | null;
 }
@@ -73,4 +74,30 @@ export interface AdminConversationDetail {
   created_at: string;
   updated_at: string;
   history: ChatHistoryItem[];
+}
+
+export interface Paginated<T> {
+  items: T[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export type ManagedUserCoachFilter = "all" | "unassigned" | string; // "all" | "unassigned" | "<uuid>"
+
+export type ManagedUserHasEmail = boolean | null;
+
+export interface ManagedUserFilters {
+  q?: string | null;
+  role?: "admin" | "coach" | "student" | null;
+  enabled?: boolean | null;
+  coach_filter?: ManagedUserCoachFilter;
+  department_level1?: string | null;
+  has_email?: ManagedUserHasEmail;
+}
+
+export interface ConversationSummary {
+  summary: string;
+  sampled_count: number;
+  total_count: number;
 }
