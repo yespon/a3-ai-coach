@@ -3,6 +3,7 @@ import type {
   AdminConversationDetail,
   AdminSessionSummary,
   CoachOption,
+  ConversationSummary,
   ConversationUserSummary,
   ImportResult,
   ManagedUser,
@@ -99,5 +100,12 @@ export async function listConversationSessions(managedUserId: string): Promise<A
 export async function getConversationSession(sessionId: string): Promise<AdminConversationDetail> {
   return (await adminFetch(`/api/v1/admin/conversations/sessions/${sessionId}`, {
     cache: "no-store",
+  })).json();
+}
+
+export async function summarizeConversation(sessionId: string): Promise<ConversationSummary> {
+  return (await adminFetch(`/api/v1/admin/conversations/sessions/${sessionId}/summary`, {
+    method: "POST",
+    headers: headers(),
   })).json();
 }

@@ -95,3 +95,9 @@ export interface ManagedUserFilters {
   department_level1?: string | null;
   has_email?: ManagedUserHasEmail;
 }
+
+export interface ConversationSummary {
+  summary: string;
+  sampled_count: number;
+  total_count: number;
+}
