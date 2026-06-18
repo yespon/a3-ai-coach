@@ -10,6 +10,7 @@ import { checkAuth, logout, hasSessionHint } from "@/lib/auth";
 import type { UserInfo } from "@/types/auth";
 import AttachmentCard from "@/components/AttachmentCard";
 import TypingIndicator from "@/components/TypingIndicator";
+import FeedbackDialog from "@/components/FeedbackDialog";
 
 export default function HomePage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -26,6 +27,7 @@ export default function HomePage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -284,6 +286,15 @@ export default function HomePage() {
                     管理后台
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setShowFeedbackDialog(true);
+                  }}
+                >
+                  意见反馈
+                </button>
                 <button type="button" onClick={() => { setShowUserMenu(false); logout(); }}>退出登录</button>
               </div>
             )}
@@ -403,6 +414,7 @@ export default function HomePage() {
           {error ? <div className="hint error-text">Error: {error}</div> : null}
         </section>
       </div>
+      <FeedbackDialog open={showFeedbackDialog} onClose={() => setShowFeedbackDialog(false)} />
     </main>
   );
 }
