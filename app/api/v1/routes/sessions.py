@@ -91,21 +91,38 @@ async def list_sessions(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, str]]:
-    # Use DB for listing when available; fall back to cache
-    if db is not None:
-        try:
-            sessions_db = await list_user_sessions(db=db, user_id=user_id)
-            if sessions_db:
-                summaries = [db_session_summary_for_client(s) for s in sessions_db]
-                return sorted(summaries, key=lambda item: item["updated_at"], reverse=True)
-        except Exception:
-            pass  # Fall back to cache-only mode
+    """List all sessions for the authenticated user.
 
-    summaries = [
-        _session_summary_for_client(session)
-        for session in SESSION_CACHE.values()
-        if session.user_id == user_id
-    ]
+    The DB is the source of truth. The in-memory ``SESSION_CACHE`` is
+    only a runtime view used by the LLM call path; it must not be used
+    to answer listing queries because (a) it is empty after every
+    server restart, (b) it can contain stale or cross-user entries in
+    multi-process deployments, and (c) falling back to it on an empty
+    DB result masks the legitimate "no sessions yet" case as a missing
+    one — which is what made history appear lost on every re-login.
+    """
+    if db is None:
+        # No DB available (e.g. legacy cache-only test mode): fall back
+        # to the in-memory cache, but only for entries that belong to
+        # this user.
+        summaries = [
+            _session_summary_for_client(session)
+            for session in SESSION_CACHE.values()
+            if session.user_id == user_id
+        ]
+        return sorted(summaries, key=lambda item: item["updated_at"], reverse=True)
+
+    try:
+        sessions_db = await list_user_sessions(db=db, user_id=user_id)
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.bind(user_id=user_id).warning(
+            "list_sessions db_query_failed err={}", exc
+        )
+        raise HTTPException(
+            status_code=503, detail="session_list_unavailable"
+        ) from exc
+
+    summaries = [db_session_summary_for_client(s) for s in sessions_db]
     return sorted(summaries, key=lambda item: item["updated_at"], reverse=True)
 
 
