@@ -114,6 +114,9 @@ async def list_sessions(
 
     try:
         sessions_db = await list_user_sessions(db=db, user_id=user_id)
+        summaries = [db_session_summary_for_client(s) for s in sessions_db]
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         LOGGER.bind(user_id=user_id).warning(
             "list_sessions db_query_failed err={}", exc
@@ -122,7 +125,6 @@ async def list_sessions(
             status_code=503, detail="session_list_unavailable"
         ) from exc
 
-    summaries = [db_session_summary_for_client(s) for s in sessions_db]
     return sorted(summaries, key=lambda item: item["updated_at"], reverse=True)
 
 

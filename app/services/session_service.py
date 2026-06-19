@@ -2,6 +2,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.models.db_models import ChatSessionDB, ChatMessageDB
 from app.models.chat import ChatSession, ChatMessage
@@ -26,8 +27,13 @@ async def create_session_in_db(
 
 
 async def list_user_sessions(db: AsyncSession, user_id: str) -> list[ChatSessionDB]:
+    # selectinload the messages relationship so db_session_summary_for_client
+    # can access session.messages synchronously without triggering a lazy
+    # load. In an async session a sync lazy load raises MissingGreenlet
+    # and the route returns 500.
     result = await db.execute(
         select(ChatSessionDB)
+        .options(selectinload(ChatSessionDB.messages))
         .where(ChatSessionDB.user_id == user_id)
         .order_by(ChatSessionDB.updated_at.desc())
     )
@@ -39,6 +45,7 @@ async def get_session_by_id(
 ) -> ChatSessionDB | None:
     result = await db.execute(
         select(ChatSessionDB)
+        .options(selectinload(ChatSessionDB.messages))
         .where(ChatSessionDB.id == session_id, ChatSessionDB.user_id == user_id)
     )
     return result.scalar_one_or_none()
