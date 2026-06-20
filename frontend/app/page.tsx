@@ -140,6 +140,8 @@ export default function HomePage() {
   }
 
   async function commitRename(sid: string) {
+    // Guard: if already committed (renamingId cleared), skip
+    if (renamingId !== sid) return;
     setRenamingId(null);
     const trimmed = renameValue.trim();
     if (!trimmed) return;
