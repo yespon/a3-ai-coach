@@ -208,7 +208,13 @@ async def rename_session_route(
     """Rename a session (set custom title)."""
     if db is None:
         raise HTTPException(status_code=503, detail="database_unavailable")
-    session_db = await rename_session(db, session_id, user_id, body.title)
+    try:
+        session_db = await rename_session(db, session_id, user_id, body.title)
+    except Exception as exc:
+        LOGGER.bind(session_id=session_id, user_id=user_id).warning(
+            "rename_session db_error={}", exc
+        )
+        raise HTTPException(status_code=503, detail="database_unavailable") from exc
     if session_db is None:
         raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
     return {"session_id": str(session_db.id), "title": session_db.title}
@@ -223,7 +229,13 @@ async def toggle_pin_session_route(
     """Toggle the pinned state of a session."""
     if db is None:
         raise HTTPException(status_code=503, detail="database_unavailable")
-    session_db = await toggle_pin_session(db, session_id, user_id)
+    try:
+        session_db = await toggle_pin_session(db, session_id, user_id)
+    except Exception as exc:
+        LOGGER.bind(session_id=session_id, user_id=user_id).warning(
+            "toggle_pin_session db_error={}", exc
+        )
+        raise HTTPException(status_code=503, detail="database_unavailable") from exc
     if session_db is None:
         raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
     return {"session_id": str(session_db.id), "pinned": session_db.pinned}
@@ -238,7 +250,13 @@ async def delete_session_route(
     """Soft-delete a session."""
     if db is None:
         raise HTTPException(status_code=503, detail="database_unavailable")
-    ok = await soft_delete_session(db, session_id, user_id)
+    try:
+        ok = await soft_delete_session(db, session_id, user_id)
+    except Exception as exc:
+        LOGGER.bind(session_id=session_id, user_id=user_id).warning(
+            "delete_session db_error={}", exc
+        )
+        raise HTTPException(status_code=503, detail="database_unavailable") from exc
     if not ok:
         raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
     return {"ok": True}

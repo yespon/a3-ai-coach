@@ -163,7 +163,7 @@ export default function HomePage() {
     try {
       await renameSession(sid, trimmed);
     } catch (err) {
-      setError(formatError(err));
+      setError(isNetworkError(err) ? "网络异常，重命名失败，请稍后重试" : formatError(err));
       await refreshSessions(); // Revert on failure
     }
   }
@@ -184,7 +184,9 @@ export default function HomePage() {
     try {
       await togglePinSession(sid);
     } catch (err) {
-      setError(formatError(err));
+      // Network/timeout errors produce raw "Failed to fetch" from the browser.
+      // Surface a friendly message and always refresh to sync real state.
+      setError(isNetworkError(err) ? "网络异常，置顶失败，请稍后重试" : formatError(err));
       await refreshSessions(); // Revert on failure
     }
   }
@@ -206,7 +208,7 @@ export default function HomePage() {
         }
       }
     } catch (err) {
-      setError(formatError(err));
+      setError(isNetworkError(err) ? "网络异常，删除失败，请稍后重试" : formatError(err));
       await refreshSessions(); // Revert on failure
     }
   }
@@ -503,6 +505,7 @@ export default function HomePage() {
               <input
                 id="chat-file-input"
                 type="file"
+                accept=".txt,.md,.json,.csv,.doc,.docx,.xls,.xlsx,.pdf"
                 onChange={(e) => {
                   const picked = Array.from(e.target.files || []);
                   if (picked.length > 0) {
@@ -582,6 +585,12 @@ function MessageContent({ content }: { content: string }) {
 }
 
 
+
+function isNetworkError(err: unknown): boolean {
+  // TypeError("Failed to fetch") is the browser's signal for a network-level
+  // failure (CORS blocked, server unreachable, DNS failure, etc.).
+  return err instanceof TypeError;
+}
 
 function formatError(err: unknown): string {
   if (err instanceof Error) {

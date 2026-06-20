@@ -2,7 +2,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 
 from app.core.config import BASE_DIR, UPLOAD_ROOT, settings
 from app.extractors.document import _extract_doc_text, _extract_docx_text, _extract_pdf_text
@@ -26,6 +26,9 @@ ATTACHMENT_HINT_CHARS = settings.attachment_hint_chars
 # When True, prepend the "附件: <name> (<size> bytes)" meta line to every hint.
 # Defaults to False so the raw extracted content is sent directly without noise.
 ATTACHMENT_SHOW_META = settings.attachment_show_meta
+
+# Maximum allowed attachment size in bytes. 0 = no limit.
+MAX_CHAT_ATTACHMENT_BYTES = settings.chat_attachment_max_bytes
 
 
 def _extract_attachment_excerpt(raw_bytes: bytes, lower_name: str) -> str:
@@ -66,6 +69,13 @@ async def _save_attachments(
 
     for f in files:
         raw_bytes = await f.read()
+
+        if MAX_CHAT_ATTACHMENT_BYTES > 0 and len(raw_bytes) > MAX_CHAT_ATTACHMENT_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"附件大小超限（上限 {MAX_CHAT_ATTACHMENT_BYTES // 1024 // 1024} MB）",
+            )
+
         filename = f.filename or "unnamed"
         safe_name = Path(filename).name
         target = session_dir / f"{uuid.uuid4().hex}_{safe_name}"

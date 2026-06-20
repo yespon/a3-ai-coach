@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     attachment_excerpt_chars: int = 0
     attachment_hint_chars: int = 0
     attachment_show_meta: bool = False
+    chat_attachment_max_bytes: int = 20 * 1024 * 1024  # 0 = no limit
 
     # --- LLM payload debug ---
     llm_payload_debug: bool = False

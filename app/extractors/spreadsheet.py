@@ -241,10 +241,10 @@ def _rows_to_raw_lines(rows: list[list[str]]) -> list[str]:
     for row in rows:
         if not any(cell for cell in row):
             continue
-        trimmed = list(row)
-        while trimmed and trimmed[-1] == "":
-            trimmed.pop()
-        lines.append("\t".join(trimmed))
+        sanitized = [cell.replace("\t", " ").replace("\n", " ").replace("\r", " ") for cell in row]
+        while sanitized and sanitized[-1] == "":
+            sanitized.pop()
+        lines.append("\t".join(sanitized))
     return lines
 
 
