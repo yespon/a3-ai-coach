@@ -145,49 +145,58 @@ export default function HomePage() {
     setRenamingId(null);
     const trimmed = renameValue.trim();
     if (!trimmed) return;
+    // Optimistic update: reflect new title immediately
+    setSessions((prev) =>
+      prev.map((s) => (s.session_id === sid ? { ...s, title: trimmed } : s))
+    );
     try {
       await renameSession(sid, trimmed);
-      await refreshSessions();
     } catch (err) {
       setError(formatError(err));
+      await refreshSessions(); // Revert on failure
     }
   }
 
   async function handleTogglePin(sid: string) {
     setContextMenuId(null);
+    // Optimistic update: toggle pin + re-sort immediately
+    setSessions((prev) => {
+      const updated = prev.map((s) =>
+        s.session_id === sid ? { ...s, pinned: !s.pinned } : s
+      );
+      return updated.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return 0;
+      });
+    });
     try {
       await togglePinSession(sid);
-      await refreshSessions();
     } catch (err) {
-      // AbortError / network blip — refresh anyway to sync state
-      if (err instanceof DOMException && err.name === "AbortError") {
-        await refreshSessions();
-        return;
-      }
       setError(formatError(err));
-      await refreshSessions();
+      await refreshSessions(); // Revert on failure
     }
   }
 
   async function handleDelete(sid: string) {
     setContextMenuId(null);
     if (!confirm("确定删除该会话？删除后不可恢复。")) return;
+    // Optimistic update: remove from list immediately
+    setSessions((prev) => prev.filter((s) => s.session_id !== sid));
     try {
       await deleteSession(sid);
       if (sid === sessionId) {
-        // Active session was deleted — switch to next
-        const refreshed = await listSessions();
-        setSessions(refreshed);
-        if (refreshed.length > 0) {
-          await onSelectSession(refreshed[0].session_id);
+        // Active session was deleted — switch to next available
+        const remaining = sessions.filter((s) => s.session_id !== sid);
+        if (remaining.length > 0) {
+          await onSelectSession(remaining[0].session_id);
         } else {
           await onCreateSession();
         }
-      } else {
-        await refreshSessions();
       }
     } catch (err) {
       setError(formatError(err));
+      await refreshSessions(); // Revert on failure
     }
   }
 
