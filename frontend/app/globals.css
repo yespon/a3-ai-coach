@@ -1134,10 +1134,13 @@ textarea {
   background: #eef2f7;
   color: var(--muted);
   font-size: 11px;
-  line-height: 1;
+  line-height: 20px;
+  text-align: center;
+  padding: 0;
   cursor: pointer;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .attachment-card-remove:hover:not(:disabled) {
   background: #e0e6ee;

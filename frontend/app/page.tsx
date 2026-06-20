@@ -506,7 +506,9 @@ export default function HomePage() {
                 onChange={(e) => {
                   const picked = Array.from(e.target.files || []);
                   if (picked.length > 0) {
-                    // Only allow 1 file at a time
+                    if (files.length > 0) {
+                      setError("仅支持上传 1 个附件，已替换为新文件");
+                    }
                     setFiles([picked[0]]);
                   }
                   e.target.value = "";
