@@ -149,12 +149,9 @@ async def update_session_settings_route(
 
     # Update in DB when available
     if db is not None:
-        try:
-            session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
-            if session_db:
-                await update_session_settings(db=db, session=session_db, show_context=req.show_context_in_history)
-        except Exception:
-            pass  # Cache-only mode is fine for now
+        session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
+        if session_db:
+            await update_session_settings(db=db, session=session_db, show_context=req.show_context_in_history)
 
     return SessionResponse(
         session_id=session.session_id,
@@ -175,13 +172,10 @@ async def get_session(
     if not session or session.user_id != user_id:
         # Try loading from DB
         if db is not None:
-            try:
-                session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
-                if session_db:
-                    session = rebuild_memory_session(session_db)
-                    SESSION_CACHE[session_id] = session
-            except Exception:
-                pass
+            session_db = await get_session_by_id(db=db, session_id=session_id, user_id=user_id)
+            if session_db:
+                session = rebuild_memory_session(session_db)
+                SESSION_CACHE[session_id] = session
     if not session or session.user_id != user_id:
         raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
 
