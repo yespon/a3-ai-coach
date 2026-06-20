@@ -21,6 +21,8 @@ class SessionResponse(BaseModel):
 
 class SessionSummaryResponse(BaseModel):
     session_id: str
+    title: str | None = None
+    pinned: bool = False
     created_at: str
     updated_at: str
     latest_preview: str

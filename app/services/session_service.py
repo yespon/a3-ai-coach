@@ -95,7 +95,7 @@ def db_session_summary_for_client(session_db: ChatSessionDB) -> dict[str, str]:
     return {
         "session_id": str(session_db.id),
         "title": display_title,
-        "pinned": session_db.pinned,
+        "pinned": bool(session_db.pinned),
         "created_at": session_db.created_at.isoformat(),
         "updated_at": (latest_user_msg.created_at if latest_user_msg else session_db.created_at).isoformat(),
         "latest_preview": preview,

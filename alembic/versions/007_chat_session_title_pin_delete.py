@@ -9,8 +9,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 
 
-revision = "007"
-down_revision = "006"
+revision = "007_session_title_pin_delete"
+down_revision = "006_feedback_tables"
 branch_labels = None
 depends_on = None
 
