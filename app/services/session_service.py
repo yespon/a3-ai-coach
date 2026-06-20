@@ -49,7 +49,11 @@ async def get_session_by_id(
     result = await db.execute(
         select(ChatSessionDB)
         .options(selectinload(ChatSessionDB.messages))
-        .where(ChatSessionDB.id == session_id, ChatSessionDB.user_id == user_id)
+        .where(
+            ChatSessionDB.id == session_id,
+            ChatSessionDB.user_id == user_id,
+            ChatSessionDB.deleted_at.is_(None),
+        )
     )
     return result.scalar_one_or_none()
 

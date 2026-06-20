@@ -28,6 +28,11 @@ def test_default_scope_for_plain_admin_is_all():
     assert default_conversation_scope(_login_user(profile)) == "all"
 
 
+def test_default_scope_for_plain_coach_is_mine():
+    profile = ManagedUserDB(id=uuid.uuid4(), primary_role="coach", is_coach=True)
+    assert default_conversation_scope(_login_user(profile)) == "mine"
+
+
 def test_is_coach_user_accepts_coach_and_admin_coach():
     assert is_coach_user(_login_user(ManagedUserDB(primary_role="coach", is_coach=True))) is True
     assert is_coach_user(_login_user(ManagedUserDB(primary_role="admin", is_coach=True))) is True

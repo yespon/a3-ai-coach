@@ -26,7 +26,7 @@ export default function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
   useEffect(() => {
     if (!open) {
       setContent("");
-      images.forEach((_, idx) => URL.revokeObjectURL(previews[idx] || ""));
+      previews.forEach((url) => URL.revokeObjectURL(url));
       setImages([]);
       setPreviews([]);
       setError("");
@@ -68,6 +68,8 @@ export default function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
   }
 
   function removeImage(idx: number) {
+    // Revoke ALL old object URLs before creating new ones
+    previews.forEach((url) => URL.revokeObjectURL(url));
     setImages((prev) => {
       const next = prev.filter((_, i) => i !== idx);
       setPreviews(next.map((f) => URL.createObjectURL(f)));

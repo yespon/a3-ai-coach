@@ -549,17 +549,7 @@ function MessageContent({ content }: { content: string }) {
   );
 }
 
-function mergeFiles(prev: File[], picked: File[]): File[] {
-  const seen = new Set(prev.map((f) => f.name));
-  const merged = [...prev];
-  for (const f of picked) {
-    if (!seen.has(f.name)) {
-      merged.push(f);
-      seen.add(f.name);
-    }
-  }
-  return merged;
-}
+
 
 function formatError(err: unknown): string {
   if (err instanceof Error) {

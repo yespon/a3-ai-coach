@@ -75,7 +75,10 @@ async def serve_upload(rest_of_path: str):
         raise HTTPException(status_code=404, detail="not_found")
     target = (UPLOAD_ROOT / rest_of_path).resolve()
     feedback_root = (UPLOAD_ROOT / "feedback").resolve()
-    if feedback_root not in target.parents and target != feedback_root:
+    # Prevent path traversal: target must be strictly inside feedback_root
+    try:
+        target.relative_to(feedback_root)
+    except ValueError:
         raise HTTPException(status_code=404, detail="not_found")
     if not target.is_file():
         raise HTTPException(status_code=404, detail="not_found")

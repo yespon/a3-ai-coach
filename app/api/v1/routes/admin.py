@@ -30,6 +30,13 @@ from app.services.managed_user_service import (
     upsert_managed_user,
 )
 from app.services.feedback_service import build_attachment_url, get_feedback, list_feedback, mark_status
+from app.services.whitelist_service import (
+    MAX_WHITELIST_UPLOAD_BYTES,
+    build_whitelist_template,
+    normalize_employee_no,
+    parse_whitelist_excel,
+    upsert_whitelist_entry,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
