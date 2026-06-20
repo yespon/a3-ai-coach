@@ -76,6 +76,16 @@ export default function HomePage() {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [contextMenuId]);
 
+  // Close user popover on click-outside
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function handleClickOutside() {
+      setShowUserMenu(false);
+    }
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [showUserMenu]);
+
   const renderedMessages = useMemo(() => {
     const rows = [...history];
     if (streamingDraft) {
@@ -406,7 +416,7 @@ export default function HomePage() {
               </div>
             )}
             {!sidebarCollapsed && (
-              <button className="user-menu-trigger" type="button" onClick={() => setShowUserMenu((prev) => !prev)}>
+              <button className="user-menu-trigger" type="button" onClick={(e) => { e.stopPropagation(); setShowUserMenu((prev) => !prev); }}>
                 ⋮
               </button>
             )}
