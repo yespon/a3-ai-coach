@@ -23,6 +23,8 @@ export interface SessionResponse {
 
 export interface SessionSummary {
   session_id: string;
+  title?: string;
+  pinned?: boolean;
   created_at: string;
   updated_at: string;
   latest_preview: string;

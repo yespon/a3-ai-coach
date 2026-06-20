@@ -146,3 +146,35 @@ export async function streamChat(
     }
   }
 }
+
+export async function renameSession(sessionId: string, title: string): Promise<{ session_id: string; title: string }> {
+  const response = await authFetch(endpoint(`/api/v1/sessions/${sessionId}/title`), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!response.ok) {
+    throw new Error(`Rename session failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function togglePinSession(sessionId: string): Promise<{ session_id: string; pinned: boolean }> {
+  const response = await authFetch(endpoint(`/api/v1/sessions/${sessionId}/pin`), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Pin session failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await authFetch(endpoint(`/api/v1/sessions/${sessionId}`), {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(`Delete session failed: ${response.status}`);
+  }
+}

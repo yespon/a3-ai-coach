@@ -4,7 +4,7 @@ import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { createSession, getSession, listSessions, sendChat, streamChat } from "@/lib/api";
+import { createSession, getSession, listSessions, sendChat, streamChat, renameSession, togglePinSession, deleteSession } from "@/lib/api";
 import { ChatHistoryItem, SessionSummary } from "@/types/chat";
 import { checkAuth, logout, hasSessionHint } from "@/lib/auth";
 import type { UserInfo } from "@/types/auth";
@@ -28,6 +28,9 @@ export default function HomePage() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const messageListRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -115,6 +118,56 @@ export default function HomePage() {
       setError("");
       const data = await listSessions();
       setSessions(data);
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
+  function startRename(item: SessionSummary) {
+    setContextMenuId(null);
+    setRenamingId(item.session_id);
+    setRenameValue(item.title || item.latest_preview || "");
+  }
+
+  async function commitRename(sid: string) {
+    setRenamingId(null);
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    try {
+      await renameSession(sid, trimmed);
+      await refreshSessions();
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
+  async function handleTogglePin(sid: string) {
+    setContextMenuId(null);
+    try {
+      await togglePinSession(sid);
+      await refreshSessions();
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
+  async function handleDelete(sid: string) {
+    setContextMenuId(null);
+    if (!confirm("确定删除该会话？删除后不可恢复。")) return;
+    try {
+      await deleteSession(sid);
+      if (sid === sessionId) {
+        // Active session was deleted — switch to next
+        const refreshed = await listSessions();
+        setSessions(refreshed);
+        if (refreshed.length > 0) {
+          await onSelectSession(refreshed[0].session_id);
+        } else {
+          await onCreateSession();
+        }
+      } else {
+        await refreshSessions();
+      }
     } catch (err) {
       setError(formatError(err));
     }
@@ -255,14 +308,58 @@ export default function HomePage() {
 
           <div className="session-list" aria-label="session-list">
             {sessions.map((item) => (
-              <button
+              <div
                 key={item.session_id}
-                type="button"
-                className={`session-item ${item.session_id === sessionId ? "active" : ""}`}
-                onClick={() => void onSelectSession(item.session_id)}
+                className={`session-item ${item.session_id === sessionId ? "active" : ""} ${item.pinned ? "pinned" : ""}`}
               >
-                <div className="session-preview">{item.latest_preview || "(empty)"}</div>
-              </button>
+                {renamingId === item.session_id ? (
+                  <input
+                    className="session-rename-input"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => void commitRename(item.session_id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void commitRename(item.session_id);
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    autoFocus
+                    maxLength={200}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="session-item-btn"
+                    onClick={() => void onSelectSession(item.session_id)}
+                  >
+                    {item.pinned ? <span className="session-pin-icon">📌</span> : null}
+                    <span className="session-preview">{item.title || item.latest_preview || "(empty)"}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="session-menu-trigger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setContextMenuId(contextMenuId === item.session_id ? null : item.session_id);
+                  }}
+                  aria-label="会话操作"
+                >
+                  ⋯
+                </button>
+                {contextMenuId === item.session_id ? (
+                  <div className="session-context-menu">
+                    <button type="button" onClick={() => startRename(item)}>
+                      ✏️ 重命名
+                    </button>
+                    <button type="button" onClick={() => void handleTogglePin(item.session_id)}>
+                      📌 {item.pinned ? "取消置顶" : "置顶聊天"}
+                    </button>
+                    <button type="button" className="danger" onClick={() => void handleDelete(item.session_id)}>
+                      🗑️ 删除
+                    </button>
+                  </div>
+                ) : null}
+              </div>
           ))}
           </div>
           <div className="sidebar-user-bar">
