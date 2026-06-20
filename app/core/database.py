@@ -17,11 +17,15 @@ async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency that yields a request-scoped async session."""
+    """FastAPI dependency that yields a request-scoped async session.
+
+    Services are responsible for calling db.commit() when they make changes.
+    This dependency only provides the session and ensures cleanup (rollback
+    on unhandled exceptions, close always).
+    """
     async with async_session_factory() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
