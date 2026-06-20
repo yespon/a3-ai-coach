@@ -7,6 +7,8 @@ from sqlalchemy.orm import selectinload
 from app.models.db_models import ChatSessionDB, ChatMessageDB
 from app.models.chat import ChatSession, ChatMessage
 
+from datetime import UTC, datetime
+
 # In-memory cache for LLM runtime context
 SESSION_CACHE: dict[str, ChatSession] = {}
 
@@ -31,11 +33,12 @@ async def list_user_sessions(db: AsyncSession, user_id: str) -> list[ChatSession
     # can access session.messages synchronously without triggering a lazy
     # load. In an async session a sync lazy load raises MissingGreenlet
     # and the route returns 500.
+    # Exclude soft-deleted sessions; sort pinned first, then by updated_at desc.
     result = await db.execute(
         select(ChatSessionDB)
         .options(selectinload(ChatSessionDB.messages))
-        .where(ChatSessionDB.user_id == user_id)
-        .order_by(ChatSessionDB.updated_at.desc())
+        .where(ChatSessionDB.user_id == user_id, ChatSessionDB.deleted_at.is_(None))
+        .order_by(ChatSessionDB.pinned.desc(), ChatSessionDB.updated_at.desc())
     )
     return list(result.scalars().all())
 
@@ -87,8 +90,12 @@ def db_session_summary_for_client(session_db: ChatSessionDB) -> dict[str, str]:
     if latest_user_msg:
         text = latest_user_msg.display_content or latest_user_msg.content
         preview = text.strip().replace("\n", " ")[:40] or "\u65b0\u5efa\u4f1a\u8bdd"
+    # Use custom title if set; otherwise fall back to message preview
+    display_title = session_db.title or preview
     return {
         "session_id": str(session_db.id),
+        "title": display_title,
+        "pinned": session_db.pinned,
         "created_at": session_db.created_at.isoformat(),
         "updated_at": (latest_user_msg.created_at if latest_user_msg else session_db.created_at).isoformat(),
         "latest_preview": preview,
@@ -166,3 +173,43 @@ def _session_summary_for_client(session: ChatSession) -> dict[str, str]:
         "updated_at": latest_user_message.created_at if latest_user_message else session.created_at,
         "latest_preview": latest_preview,
     }
+
+
+# --- Session management (rename / pin / delete) ---
+
+
+async def rename_session(
+    db: AsyncSession, session_id: str, user_id: str, title: str
+) -> ChatSessionDB | None:
+    session_db = await get_session_by_id(db, session_id, user_id)
+    if session_db is None or session_db.deleted_at is not None:
+        return None
+    session_db.title = title.strip()[:200] or None
+    await db.commit()
+    await db.refresh(session_db)
+    return session_db
+
+
+async def toggle_pin_session(
+    db: AsyncSession, session_id: str, user_id: str
+) -> ChatSessionDB | None:
+    session_db = await get_session_by_id(db, session_id, user_id)
+    if session_db is None or session_db.deleted_at is not None:
+        return None
+    session_db.pinned = not session_db.pinned
+    await db.commit()
+    await db.refresh(session_db)
+    return session_db
+
+
+async def soft_delete_session(
+    db: AsyncSession, session_id: str, user_id: str
+) -> bool:
+    session_db = await get_session_by_id(db, session_id, user_id)
+    if session_db is None or session_db.deleted_at is not None:
+        return False
+    session_db.deleted_at = datetime.now(UTC)
+    await db.commit()
+    # Also remove from in-memory cache if present
+    SESSION_CACHE.pop(session_id, None)
+    return True

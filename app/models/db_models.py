@@ -116,6 +116,8 @@ class ChatSessionDB(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         index=True,
     )
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     show_context: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     context_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -124,6 +126,7 @@ class ChatSessionDB(Base):
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now(UTC)
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     # -- relationships --
     user: Mapped["User"] = relationship(back_populates="sessions")

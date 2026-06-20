@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import LOGGER, get_current_user_id
@@ -26,6 +27,9 @@ from app.services.session_service import (
     db_session_history_for_client,
     db_session_summary_for_client,
     rebuild_memory_session,
+    rename_session,
+    toggle_pin_session,
+    soft_delete_session,
 )
 
 router = APIRouter()
@@ -187,3 +191,56 @@ async def get_session(
         created_at=session.created_at,
         history=_session_history_for_client(session),
     )
+
+
+# --- Session management: rename / pin / delete ---
+
+
+class RenameSessionRequest(BaseModel):
+    title: str
+
+
+@router.patch("/sessions/{session_id}/title")
+async def rename_session_route(
+    session_id: str,
+    body: RenameSessionRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a session (set custom title)."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="database_unavailable")
+    session_db = await rename_session(db, session_id, user_id, body.title)
+    if session_db is None:
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
+    return {"session_id": str(session_db.id), "title": session_db.title}
+
+
+@router.patch("/sessions/{session_id}/pin")
+async def toggle_pin_session_route(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle the pinned state of a session."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="database_unavailable")
+    session_db = await toggle_pin_session(db, session_id, user_id)
+    if session_db is None:
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
+    return {"session_id": str(session_db.id), "pinned": session_db.pinned}
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session_route(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a session."""
+    if db is None:
+        raise HTTPException(status_code=503, detail="database_unavailable")
+    ok = await soft_delete_session(db, session_id, user_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="\u4f1a\u8bdd\u4e0d\u5b58\u5728")
+    return {"ok": True}
