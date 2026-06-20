@@ -43,12 +43,16 @@ async def create_session(
 ) -> SessionResponse:
     # Hybrid mode: persist to DB when available, otherwise pure cache
     if db is not None:
-        session_db = await create_session_in_db(
-            db=db,
-            user_id=user_id,
-            show_context=req.show_context_in_history,
-            context_file=CONTEXT_FILE.name,
-        )
+        try:
+            session_db = await create_session_in_db(
+                db=db,
+                user_id=user_id,
+                show_context=req.show_context_in_history,
+                context_file=CONTEXT_FILE.name,
+            )
+        except Exception as exc:
+            LOGGER.bind(user_id=user_id).warning("create_session db_error={}", exc)
+            raise HTTPException(status_code=503, detail="session_create_unavailable") from exc
         sid = str(session_db.id)
         created_at = session_db.created_at.isoformat() if session_db.created_at else ""
         show_context = session_db.show_context

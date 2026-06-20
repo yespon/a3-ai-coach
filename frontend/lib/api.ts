@@ -23,11 +23,21 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
     headers["X-CSRF-Token"] = csrf;
   }
 
-  const resp = await fetch(url, {
+  const fetchOptions: RequestInit = {
     ...options,
     headers,
-    credentials: "include", // Always send session cookie
-  });
+    credentials: "include",
+  };
+
+  // Retry once on network failure (covers transient connection resets)
+  let resp: Response;
+  try {
+    resp = await fetch(url, fetchOptions);
+  } catch (err) {
+    // First attempt failed with network error — retry once after short delay
+    await new Promise((r) => setTimeout(r, 500));
+    resp = await fetch(url, fetchOptions);
+  }
 
   if (resp.status === 401) {
     logout();
