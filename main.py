@@ -62,7 +62,7 @@ app.include_router(api_v1_router, prefix="/api/v1")
 @app.get("/")
 async def index() -> dict[str, str]:
     return {
-        "service": "gangbiao-chatbot-api",
+        "service": "a3-coach-api",
         "status": "ok",
         "version": "0.1.0",
     }

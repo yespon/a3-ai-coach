@@ -11,6 +11,7 @@ const EXT_MAP: Record<string, FileTypeInfo> = {
   pdf: { label: "PDF", color: "#d93025", short: "PDF" },
   doc: { label: "文档", color: "#2b579a", short: "DOC" },
   docx: { label: "文档", color: "#2b579a", short: "DOCX" },
+  pptx: { label: "演示文稿", color: "#d24726", short: "PPTX" },
   txt: { label: "文本", color: "#5f6368", short: "TXT" },
   md: { label: "文本", color: "#5f6368", short: "MD" },
   json: { label: "文本", color: "#5f6368", short: "JSON" },

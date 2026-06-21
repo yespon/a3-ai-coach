@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import SsoUserWhitelistDB
 
-WHITELIST_DENY_MESSAGE = "当前账号未开通岗标 AI 教练访问权限，请联系管理员开通。"
+WHITELIST_DENY_MESSAGE = "当前账号未开通 A3工作法AI教练 访问权限，请联系管理员开通。"
 MAX_WHITELIST_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_WHITELIST_ROWS = 50_000
 

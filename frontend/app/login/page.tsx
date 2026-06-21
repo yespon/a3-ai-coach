@@ -99,7 +99,7 @@ export default function LoginPage() {
   return (
     <main className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-title">岗标AI教练</h1>
+        <h1 className="auth-title">A3工作法AI教练</h1>
 
         {/* SSO Login — primary action */}
         <button

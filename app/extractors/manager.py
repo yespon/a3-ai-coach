@@ -6,6 +6,7 @@ from fastapi import HTTPException, UploadFile
 
 from app.core.config import BASE_DIR, UPLOAD_ROOT, settings
 from app.extractors.document import _extract_doc_text, _extract_docx_text, _extract_pdf_text
+from app.extractors.presentation import _extract_pptx_text
 from app.extractors.spreadsheet import _extract_xls_text, _extract_xlsx_text
 
 
@@ -43,6 +44,9 @@ def _extract_attachment_excerpt(raw_bytes: bytes, lower_name: str) -> str:
 
     if lower_name.endswith(".pdf"):
         return _extract_pdf_text(raw_bytes)
+
+    if lower_name.endswith(".pptx"):
+        return _extract_pptx_text(raw_bytes)
 
     if lower_name.endswith(".xlsx"):
         return _extract_xlsx_text(raw_bytes)
@@ -104,7 +108,7 @@ async def _save_attachments(
             attachment_hints.append(_clip_text(excerpt, ATTACHMENT_HINT_CHARS))
         else:
             attachment_hints.append(
-                f"附件 {safe_name} 未提取到可读文本（建议使用 txt/md/json/csv/doc/docx/xls/xlsx/pdf，或粘贴关键内容）"
+                f"附件 {safe_name} 未提取到可读文本（建议使用 txt/md/json/csv/doc/docx/xls/xlsx/pdf/pptx，或粘贴关键内容）"
             )
 
     return saved_meta, attachment_hints

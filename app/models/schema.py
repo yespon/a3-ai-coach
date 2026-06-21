@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class CreateSessionRequest(BaseModel):
     show_context_in_history: bool = True
+    coaching_mode: str | None = None  # "gangbiao" | "a3"; None → auto-detect
 
 
 class UpdateSessionSettingsRequest(BaseModel):
@@ -15,6 +16,7 @@ class UpdateSessionSettingsRequest(BaseModel):
 class SessionResponse(BaseModel):
     session_id: str
     show_context_in_history: bool
+    coaching_mode: str = "a3"
     created_at: str
     history: list[dict[str, Any]]
 
@@ -23,6 +25,7 @@ class SessionSummaryResponse(BaseModel):
     session_id: str
     title: str | None = None
     pinned: bool = False
+    coaching_mode: str = "a3"
     created_at: str
     updated_at: str
     latest_preview: str

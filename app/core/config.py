@@ -17,7 +17,9 @@ SUPPORTED_ATTACHMENT_EXTS = (
     ".xls",
     ".xlsx",
     ".pdf",
+    ".pptx",
 )
+A3_CONTEXT_FILE = BASE_DIR / "A3教练母体.history.json"
 
 
 class Settings(BaseSettings):

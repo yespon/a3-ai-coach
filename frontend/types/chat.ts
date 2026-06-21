@@ -12,6 +12,7 @@ export interface ChatHistoryItem {
   source?: string;
   created_at?: string;
   attachments?: AttachmentMeta[];   // 后端 history 已返回；前端此前丢弃
+  coaching_mode?: string;
 }
 
 export interface SessionResponse {
@@ -19,6 +20,7 @@ export interface SessionResponse {
   show_context_in_history: boolean;
   created_at: string;
   history: ChatHistoryItem[];
+  coaching_mode?: string;
 }
 
 export interface SessionSummary {
@@ -28,15 +30,17 @@ export interface SessionSummary {
   created_at: string;
   updated_at: string;
   latest_preview: string;
+  coaching_mode?: string;
 }
 
 export interface ChatResponse {
   session_id: string;
   reply: string;
   history: ChatHistoryItem[];
+  coaching_mode?: string;
 }
 
 export type StreamEvent =
   | { type: "delta"; delta: string }
-  | { type: "done"; session_id: string; reply: string; history: ChatHistoryItem[] }
+  | { type: "done"; session_id: string; reply: string; history: ChatHistoryItem[]; coaching_mode?: string }
   | { type: "error"; message: string };

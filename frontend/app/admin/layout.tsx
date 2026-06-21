@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="admin-card admin-center-card">
           <p className="admin-kicker">Access Control</p>
           <h1>无权限访问</h1>
-          <p>当前账号没有管理后台权限，请返回聊天首页继续使用岗标 AI 教练。</p>
+          <p>当前账号没有管理后台权限，请返回聊天首页继续使用 A3工作法AI教练。</p>
           <Link className="admin-button admin-button-primary" href="/">
             返回聊天首页
           </Link>

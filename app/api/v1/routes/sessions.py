@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import LOGGER, get_current_user_id
-from app.core.config import CONTEXT_FILE, SUPPORTED_ATTACHMENT_EXTS
+from app.core.config import A3_CONTEXT_FILE, CONTEXT_FILE, SUPPORTED_ATTACHMENT_EXTS
 from app.core.database import get_db
 from app.extractors.manager import _extract_attachment_excerpt
 from app.models.chat import ChatSession
@@ -41,6 +41,10 @@ async def create_session(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> SessionResponse:
+    # Determine coaching mode and corresponding context file
+    coaching_mode = req.coaching_mode or "a3"
+    context_file = A3_CONTEXT_FILE.name if coaching_mode == "a3" else CONTEXT_FILE.name
+
     # Hybrid mode: persist to DB when available, otherwise pure cache
     if db is not None:
         try:
@@ -48,7 +52,8 @@ async def create_session(
                 db=db,
                 user_id=user_id,
                 show_context=req.show_context_in_history,
-                context_file=CONTEXT_FILE.name,
+                context_file=context_file,
+                coaching_mode=coaching_mode,
             )
         except Exception as exc:
             LOGGER.bind(user_id=user_id).warning("create_session db_error={}", exc)
@@ -57,11 +62,12 @@ async def create_session(
         created_at = session_db.created_at.isoformat() if session_db.created_at else ""
         show_context = session_db.show_context
         context_file = session_db.context_file or CONTEXT_FILE.name
+        coaching_mode = session_db.coaching_mode or "a3"
     else:
         sid = uuid.uuid4().hex
         created_at = ""
         show_context = req.show_context_in_history
-        context_file = CONTEXT_FILE.name
+        context_file = A3_CONTEXT_FILE.name if coaching_mode == "a3" else CONTEXT_FILE.name
 
     # Build in-memory ChatSession for LLM runtime cache
     session = ChatSession(
@@ -69,9 +75,11 @@ async def create_session(
         show_context_in_history=show_context,
         context_file=context_file,
         user_id=user_id,
+        coaching_mode=coaching_mode,
         created_at=created_at,
     )
-    session.messages.extend(load_default_context_messages(CONTEXT_FILE, LOGGER))
+    context_to_load = A3_CONTEXT_FILE if coaching_mode == "a3" else CONTEXT_FILE
+    session.messages.extend(load_default_context_messages(context_to_load, LOGGER))
     session.messages.extend(
         load_materials_context_messages(
             supported_attachment_exts=SUPPORTED_ATTACHMENT_EXTS,
@@ -89,6 +97,7 @@ async def create_session(
     return SessionResponse(
         session_id=sid,
         show_context_in_history=session.show_context_in_history,
+        coaching_mode=session.coaching_mode,
         created_at=session.created_at,
         history=_session_history_for_client(session),
     )
@@ -186,6 +195,7 @@ async def get_session(
     return SessionResponse(
         session_id=session.session_id,
         show_context_in_history=session.show_context_in_history,
+        coaching_mode=session.coaching_mode,
         created_at=session.created_at,
         history=_session_history_for_client(session),
     )

@@ -26,5 +26,6 @@ class ChatSession:
     show_context_in_history: bool
     context_file: str
     user_id: str = "anonymous"
+    coaching_mode: str = "a3"  # "gangbiao" | "a3"
     created_at: str = field(default_factory=_now_iso)
     messages: list[ChatMessage] = field(default_factory=list)

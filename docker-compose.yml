@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     environment:
-      CORS_ALLOW_ORIGINS: "http://localhost:2088,http://127.0.0.1:2088,http://localhost:3000,http://127.0.0.1:3000,http://gangbiao-ai-coach.ruijie.com.cn,https://gangbiao-ai-coach.ruijie.com.cn"
+      CORS_ALLOW_ORIGINS: "http://localhost:2088,http://127.0.0.1:2088,http://localhost:3000,http://127.0.0.1:3000,http://a3-ai-coach.ruijie.com.cn,https://a3-ai-coach.ruijie.com.cn"
       MATERIALS_DIR: /app/materials
     volumes:
       - ./uploads:/app/uploads
@@ -40,7 +40,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     ports:
-      - "80:80"
+      - "3088:80"
     volumes:
       - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:

@@ -17,10 +17,12 @@ SESSIONS = SESSION_CACHE
 
 
 async def create_session_in_db(
-    db: AsyncSession, user_id: str, show_context: bool, context_file: str
+    db: AsyncSession, user_id: str, show_context: bool, context_file: str,
+    coaching_mode: str = "a3",
 ) -> ChatSessionDB:
     session = ChatSessionDB(
-        user_id=user_id, show_context=show_context, context_file=context_file
+        user_id=user_id, show_context=show_context, context_file=context_file,
+        coaching_mode=coaching_mode,
     )
     db.add(session)
     await db.commit()
@@ -100,6 +102,7 @@ def db_session_summary_for_client(session_db: ChatSessionDB) -> dict[str, str]:
         "session_id": str(session_db.id),
         "title": display_title,
         "pinned": bool(session_db.pinned),
+        "coaching_mode": session_db.coaching_mode or "a3",
         "created_at": session_db.created_at.isoformat(),
         "updated_at": (latest_user_msg.created_at if latest_user_msg else session_db.created_at).isoformat(),
         "latest_preview": preview,
@@ -113,6 +116,7 @@ def rebuild_memory_session(session_db: ChatSessionDB) -> ChatSession:
         show_context_in_history=session_db.show_context,
         context_file=session_db.context_file or "",
         user_id=str(session_db.user_id),
+        coaching_mode=session_db.coaching_mode or "a3",
         created_at=session_db.created_at.isoformat() if session_db.created_at else "",
     )
     for msg_db in session_db.messages:
@@ -174,6 +178,7 @@ def _session_summary_for_client(session: ChatSession) -> dict[str, str]:
     return {
         "session_id": session.session_id,
         "created_at": session.created_at,
+        "coaching_mode": session.coaching_mode,
         "updated_at": latest_user_message.created_at if latest_user_message else session.created_at,
         "latest_preview": latest_preview,
     }

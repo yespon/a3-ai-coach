@@ -120,6 +120,7 @@ class ChatSessionDB(Base):
     pinned: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     show_context: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     context_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    coaching_mode: Mapped[str] = mapped_column(String(20), server_default=text("'a3'"))
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()")
     )

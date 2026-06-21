@@ -32,6 +32,7 @@ export default function HomePage() {
   const [contextMenuAbove, setContextMenuAbove] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [coachingMode, setCoachingMode] = useState<string>("a3");
   const messageListRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -108,10 +109,12 @@ export default function HomePage() {
         const first = await getSession(data[0].session_id);
         setSessionId(first.session_id);
         setHistory(first.history || []);
+        setCoachingMode(first.coaching_mode || "a3");
       } else {
         const created = await createSession(showContextInHistory);
         setSessionId(created.session_id);
         setHistory(created.history || []);
+        setCoachingMode(created.coaching_mode || "a3");
         const latest = await listSessions();
         setSessions(latest);
       }
@@ -220,6 +223,7 @@ export default function HomePage() {
       const session = await createSession(showContextInHistory);
       setSessionId(session.session_id);
       setHistory(session.history || []);
+      setCoachingMode(session.coaching_mode || "a3");
       await refreshSessions();
     } catch (err) {
       setError(formatError(err));
@@ -235,6 +239,7 @@ export default function HomePage() {
       const session = await getSession(target);
       setSessionId(session.session_id);
       setHistory(session.history || []);
+      setCoachingMode(session.coaching_mode || "a3");
       setStreamingDraft("");
     } catch (err) {
       setError(formatError(err));
@@ -250,6 +255,7 @@ export default function HomePage() {
     const created = await createSession(showContextInHistory);
     setSessionId(created.session_id);
     setHistory(created.history || []);
+    setCoachingMode(created.coaching_mode || "a3");
     await refreshSessions();
     return created.session_id;
   }
@@ -295,6 +301,9 @@ export default function HomePage() {
           } else if (evt.type === "done") {
             setHistory(evt.history || []);
             setStreamingDraft("");
+            if (evt.coaching_mode && evt.coaching_mode !== coachingMode) {
+              setCoachingMode(evt.coaching_mode);
+            }
           } else if (evt.type === "error") {
             setError(evt.message);
             setStreamingDraft("");
@@ -446,13 +455,13 @@ export default function HomePage() {
 
         <section className="chat">
           <header className="chat-head">
-            <h1>岗标AI教练 Beta</h1>
+            <h1>A3工作法AI教练 Beta</h1>
             <div className="hint">当前会话: {sessionId || "未选择"}</div>
           </header>
 
           <div className="messages" ref={messageListRef}>
             {renderedMessages.length === 0 ? (
-              <div className="empty-state">开始提问吧，支持文本与EXCEL附件联合问答。</div>
+              <div className="empty-state">开始提问吧，支持文本与附件联合问答。</div>
             ) : null}
             {renderedMessages.map((item, index) => (
               <div key={`${item.role}-${index}`} className={`msg-row ${item.role}`}>
@@ -505,7 +514,7 @@ export default function HomePage() {
               <input
                 id="chat-file-input"
                 type="file"
-                accept=".txt,.md,.json,.csv,.doc,.docx,.xls,.xlsx,.pdf"
+                accept=".txt,.md,.json,.csv,.doc,.docx,.xls,.xlsx,.pdf,.pptx"
                 onChange={(e) => {
                   const picked = Array.from(e.target.files || []);
                   if (picked.length > 0) {
@@ -527,7 +536,7 @@ export default function HomePage() {
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
                 onKeyDown={onKeyDown}
-                placeholder="输入你的问题，支持结合EXCEL附件进行回答"
+                placeholder="输入你的问题，支持A3报告、Excel等附件"
                 disabled={busy && !streamingDraft}
               />
               <button

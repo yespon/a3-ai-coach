@@ -210,7 +210,7 @@ async def test_ensure_managed_user_allowed_rejects_missing_non_system_admin():
     db = FakeDb([None])
     with pytest.raises(PermissionError) as exc:
         await ensure_managed_user_allowed(db, "1001", False)
-    assert str(exc.value) == "当前账号未开通岗标 AI 教练访问权限，请联系管理员开通。"
+    assert str(exc.value) == "当前账号未开通 A3工作法AI教练 访问权限，请联系管理员开通。"
 
 
 @pytest.mark.asyncio

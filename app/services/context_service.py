@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import BASE_DIR, settings
-from app.models.chat import ChatMessage
+from app.models.chat import ChatMessage, ChatSession
 
 MATERIALS_CONTEXT_CACHE: list[ChatMessage] = []
 
@@ -130,7 +130,7 @@ def load_materials_context_messages(
     extract_attachment_excerpt,
     logger,
 ) -> list[ChatMessage]:
-    global MATERIALS_CONTEXT_CACHE
+    global MATERIALS_CONTEXT_CACHE  # noqa: PLW0603
 
     if not settings.materials_autoload:
         return []
@@ -213,3 +213,29 @@ def load_materials_context_messages(
 
     logger.info("Loaded {} materials into default context from {}", len(blocks), materials_dir)
     return _clone_context_messages(MATERIALS_CONTEXT_CACHE)
+
+
+def reload_context_for_mode(
+    session: ChatSession,
+    context_file: Path,
+    supported_attachment_exts: tuple[str, ...],
+    extract_attachment_excerpt,
+    logger,
+) -> None:
+    """Replace a session's context messages with those for a different coaching mode.
+
+    Removes all existing ``is_context=True`` messages and reloads the default
+    context from *context_file* plus any auto-loaded materials.
+    """
+    # Remove existing context messages.
+    session.messages = [m for m in session.messages if not m.is_context]
+
+    # Load new context.
+    session.messages[:0] = load_default_context_messages(context_file, logger)
+    session.messages.extend(
+        load_materials_context_messages(
+            supported_attachment_exts=supported_attachment_exts,
+            extract_attachment_excerpt=extract_attachment_excerpt,
+            logger=logger,
+        )
+    )

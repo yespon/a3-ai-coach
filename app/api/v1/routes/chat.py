@@ -7,14 +7,16 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import LOGGER, get_current_user_id
+from app.core.config import A3_CONTEXT_FILE, CONTEXT_FILE, SUPPORTED_ATTACHMENT_EXTS, settings
 from app.core.database import get_db
-from app.extractors.manager import _save_attachments
+from app.extractors.manager import _extract_attachment_excerpt, _save_attachments
 from app.models.chat import ChatMessage, ChatSession
 from app.services.chat_service import _append_user_message_with_attachments, _finalize_stream_reply
+from app.services.coaching_mode_service import detect_coaching_mode
+from app.services.context_service import reload_context_for_mode
 from app.services.llm_service import _build_model_messages, _call_llm, _call_llm_stream
 from app.services.message_service import append_message
 from app.services.session_service import SESSION_CACHE, _session_history_for_client, get_session_by_id, rebuild_memory_session
-from app.core.config import settings
 from app.services.sse_service import build_delta_event, build_error_event, format_sse_event
 
 router = APIRouter()
@@ -104,6 +106,9 @@ async def chat(
         log_event="chat_request_received attachments={} has_text={}",
     )
 
+    # Detect and switch coaching mode based on uploaded file.
+    _maybe_switch_coaching_mode(session, user_msg, message, db, chat_logger)
+
     llm_messages = _build_model_messages(session, user_msg)
     _log_llm_payload_debug(chat_logger, llm_messages, user_msg)
     assistant_text = await _call_llm(llm_messages)
@@ -123,6 +128,7 @@ async def chat(
         "session_id": session.session_id,
         "reply": assistant_text,
         "history": _session_history_for_client(session),
+        "coaching_mode": session.coaching_mode,
     }
 
 
@@ -149,6 +155,10 @@ async def chat_stream(
         request_logger=stream_logger,
         log_event="chat_stream_request_received attachments={} has_text={}",
     )
+
+    # Detect and switch coaching mode based on uploaded file.
+    _maybe_switch_coaching_mode(session, user_msg, message, db, stream_logger)
+
     llm_messages = _build_model_messages(session, user_msg)
     _log_llm_payload_debug(stream_logger, llm_messages, user_msg)
 
@@ -180,6 +190,69 @@ async def chat_stream(
                 db=db, session_id=session_id, role="assistant",
                 content=done_payload["reply"],
             )
+        done_payload["coaching_mode"] = session.coaching_mode
         yield format_sse_event(done_payload)
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+def _maybe_switch_coaching_mode(
+    session: ChatSession,
+    user_msg: ChatMessage,
+    message: str,
+    db: AsyncSession | None,
+    logger,
+) -> None:
+    """Detect coaching mode from the user's attachment/message and switch if needed."""
+    if not user_msg.attachments:
+        return
+
+    att = user_msg.attachments[0]
+    filename = att.get("filename", "")
+    excerpt = att.get("excerpt", "")
+
+    detected = detect_coaching_mode(
+        filename=filename,
+        excerpt=excerpt,
+        user_message=message,
+    )
+
+    if detected == session.coaching_mode:
+        return
+
+    old_mode = session.coaching_mode
+    session.coaching_mode = detected
+    context_file = A3_CONTEXT_FILE if detected == "a3" else CONTEXT_FILE
+    session.context_file = context_file.name
+
+    # Reload context messages for the new mode.
+    reload_context_for_mode(
+        session=session,
+        context_file=context_file,
+        supported_attachment_exts=SUPPORTED_ATTACHMENT_EXTS,
+        extract_attachment_excerpt=_extract_attachment_excerpt,
+        logger=logger,
+    )
+
+    logger.info(
+        "coaching_mode_switched old={} new={}", old_mode, detected,
+    )
+
+    # Persist mode change to DB when available.
+    if db is not None:
+        import sqlalchemy as sa
+        from app.models.db_models import ChatSessionDB
+
+        async def _update_db_mode() -> None:
+            try:
+                await db.execute(
+                    sa.update(ChatSessionDB)
+                    .where(ChatSessionDB.id == session.session_id)
+                    .values(coaching_mode=detected, context_file=session.context_file)
+                )
+                await db.commit()
+            except Exception as exc:
+                logger.warning("coaching_mode_db_update_failed err={}", exc)
+
+        import asyncio
+        asyncio.create_task(_update_db_mode())

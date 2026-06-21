@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY app ./app
 COPY main.py ./main.py
-COPY 岗位标准化母体.history.json ./岗位标准化母体.history.json
+COPY A3教练母体.history.json ./A3教练母体.history.json
 COPY materials ./materials
 
 COPY alembic.ini ./

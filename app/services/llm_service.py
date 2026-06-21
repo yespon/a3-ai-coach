@@ -8,14 +8,34 @@ from app.core.config import settings
 from app.models.chat import ChatMessage, ChatSession
 
 
+_A3_SYSTEM_PROMPT = (
+    "你是A3工作法教练。你的任务是帮助学员把A3问题想清楚，而不是替学员直接完成A3。"
+    "你的默认语气是：直接、具体、教练式。"
+    "反馈固定四步：(1) 先指出材料里的有效信息；(2) 再指出主要问题；"
+    "(3) 再给修改思考方向；(4) 最后给阶段结论。"
+    "严格阶段门控：背景未通过不进入现状，依此类推到计划。"
+    "默认只辅导到第6步：计划。"
+    "不要替学员写完整答案，除非是固定背景案例。"
+)
+
+_GANGBIAO_SYSTEM_PROMPT = (
+    "你是A3工作法AI教练。"
+    "请在回答中保持教练式引导，优先围绕用户提供的上下文和材料。"
+)
+
+
+def _system_prompt_for_mode(coaching_mode: str) -> str:
+    """Return the system prompt for the given coaching mode."""
+    if coaching_mode == "a3":
+        return _A3_SYSTEM_PROMPT
+    return _GANGBIAO_SYSTEM_PROMPT
+
+
 def _build_model_messages(session: ChatSession, user_msg: ChatMessage) -> list[dict[str, str]]:
     messages: list[dict[str, str]] = [
         {
             "role": "system",
-            "content": (
-                "你是岗位标准化 AI 教练。"
-                "请在回答中保持教练式引导，优先围绕用户提供的上下文和材料。"
-            ),
+            "content": _system_prompt_for_mode(session.coaching_mode),
         }
     ]
 

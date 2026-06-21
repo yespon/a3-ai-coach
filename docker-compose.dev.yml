@@ -1,0 +1,37 @@
+# Dev override: adds a local PostgreSQL container so `docker compose up` works
+# without an external database.  Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# The backend's DATABASE_URL is overridden to point at the containerised postgres
+# (host = "postgres" inside the Docker network).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gangbiao
+      POSTGRES_USER: gangbiao
+      POSTGRES_PASSWORD: gangbiao
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gangbiao"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://gangbiao:gangbiao@postgres:5432/gangbiao"
+    env_file:
+      - .env
+
+volumes:
+  pgdata_dev:
