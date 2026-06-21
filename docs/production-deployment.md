@@ -5,7 +5,7 @@
 ### 1. 数据备份
 
 ```bash
-# 执行全量备份（数据库 + 文件 + 证书 + 配置）
+# 执行全量备份（数据库 + 文件 + 配置）
 ./scripts/backup_db.sh
 
 # 验证备份可读
@@ -28,15 +28,14 @@ alembic upgrade head
 > ⚠️ Dockerfile CMD 是 `alembic upgrade head && uvicorn`，容器启动时自动跑迁移。
 > 首次部署建议先手动执行迁移确认成功，再启动容器。
 
-### 3. 证书与配置
+### 3. 配置检查
 
 ```bash
-# 检查 TLS 证书有效期
-openssl x509 -enddate -noout -in deploy/nginx/certs/fullchain.pem
-
 # 确认 .env 配置完整
-grep -E "DATABASE_URL|OPENAI_API_KEY|SECRET_KEY|SID_BASE_URL" .env
+grep -E "DATABASE_URL|OPENAI_API_KEY|SID_BASE_URL" .env
 ```
+
+> TLS 证书由网关统一管理，应用层仅需监听 HTTP 80。
 
 ### 4. 健康检查
 
@@ -44,11 +43,11 @@ grep -E "DATABASE_URL|OPENAI_API_KEY|SECRET_KEY|SID_BASE_URL" .env
 
 ```bash
 # 后端健康（含 DB 连通检查）
-curl -s https://gangbiao-ai-coach.ruijie.com.cn/api/v1/health
+curl -s http://localhost:80/api/v1/health
 # 期望: {"status":"ok"}    DB 异常时: {"status":"degraded","detail":"db_unavailable: ..."}
 
 # 前端页面
-curl -sI https://gangbiao-ai-coach.ruijie.com.cn/ | head -5
+curl -sI http://localhost:80/ | head -5
 
 # Docker 容器状态
 docker compose ps
@@ -81,7 +80,6 @@ docker compose ps  # 所有服务 healthy
 | 迁移失败 | 手动 `alembic downgrade <target>`；005 downgrade 会删数据，优先从备份恢复 |
 | 服务异常 | `docker compose down` → `pg_restore` → `docker compose up -d` |
 | 数据库丢失 | 停服务 → `pg_restore -c -d gangbiao backups/YYYYMMDD/db_*.dump` → 重启 |
-| 证书丢失 | `tar xzf backups/YYYYMMDD/certs_*.tar.gz -C deploy/nginx/` → 重启 nginx |
 | 配置丢失 | `cp backups/YYYYMMDD/env_*.bak .env` → 重启 |
 
 ### 完整数据库恢复

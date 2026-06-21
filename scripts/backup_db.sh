@@ -75,15 +75,6 @@ if [ -d "$PROJECT_DIR/uploads" ]; then
     echo "[$(date -Iseconds)] Uploads backup OK: $UPLOADS_ARCHIVE ($SIZE)"
 fi
 
-# TLS certificates
-if [ -d "$PROJECT_DIR/deploy/nginx/certs" ]; then
-    CERTS_ARCHIVE="$TODAY_DIR/certs_${TIMESTAMP}.tar.gz"
-    echo "[$(date -Iseconds)] Backing up TLS certificates..."
-    tar czf "$CERTS_ARCHIVE" -C "$PROJECT_DIR/deploy/nginx" certs/
-    SIZE="$(du -h "$CERTS_ARCHIVE" | cut -f1)"
-    echo "[$(date -Iseconds)] Certs backup OK: $CERTS_ARCHIVE ($SIZE)"
-fi
-
 # .env configuration
 if [ -f "$PROJECT_DIR/.env" ]; then
     ENV_BACKUP="$TODAY_DIR/env_${TIMESTAMP}.bak"

@@ -18,9 +18,6 @@ wheels/
 # Runtime logs
 logs/*.log
 
-# Local TLS certificates for nginx
-deploy/nginx/certs/
-
 # Runtime uploads
 uploads/
 
