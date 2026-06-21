@@ -39,7 +39,7 @@ export default function AdminOverviewPage() {
         },
         {
           title: "用户管理",
-          description: "维护人员身份、角色与教练归属，支持单个创建和批量导入。",
+          description: "维护人员身份、角色与负责人归属，支持单个创建和批量导入。",
           href: "/admin/users",
         },
         {
@@ -66,7 +66,7 @@ export default function AdminOverviewPage() {
       <section className="admin-hero-card">
         <p className="admin-kicker">Overview</p>
         <h2>后台概览</h2>
-        <p>根据角色显示可用模块入口，保持管理员与教练权限边界清晰。</p>
+        <p>根据角色显示可用模块入口，保持管理员与岗位负责人权限边界清晰。</p>
       </section>
 
       {loading ? (

@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const activePath = pathname || "/admin";
   const navItems = buildNavItems(user);
   const canAccess = canAccessPath(activePath, user);
-  const roleLabel = user.is_admin ? "管理员" : "教练";
+  const roleLabel = user.is_admin ? "管理员" : "岗位负责人";
 
   if (!canAccess) {
     return (

@@ -23,7 +23,7 @@ def test_normalize_student_role_clears_coach_fields():
 
 
 def test_normalize_coach_role_forces_is_coach_and_clears_coach_id():
-    normalized = normalize_managed_user_role("教练", False, "coach-id")
+    normalized = normalize_managed_user_role("岗位负责人", False, "coach-id")
     assert normalized == {"primary_role": "coach", "is_coach": True, "coach_id": None}
 
 
@@ -59,8 +59,8 @@ def test_managed_user_template_headers_are_in_confirmed_order():
         "邮箱",
         "一级部门",
         "主角色",
-        "兼任教练",
-        "所属教练工号",
+        "兼任负责人",
+        "所属负责人工号",
         "启用状态",
     ]
 
@@ -77,7 +77,7 @@ def _xlsx(rows):
 
 def test_parse_managed_user_excel_defaults_student_and_enabled():
     data = _xlsx([
-        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任负责人", "所属负责人工号", "启用状态"],
         [" 1001 ", "张三", "a@example.com", "研发", None, None, None, None],
     ])
     result = parse_managed_user_excel(data)
@@ -97,8 +97,8 @@ def test_parse_managed_user_excel_defaults_student_and_enabled():
 
 def test_parse_managed_user_excel_keeps_department_after_email():
     data = _xlsx([
-        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
-        ["2001", "李教练", "coach@example.com", "销售", "教练", "否", None, "启用"],
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任负责人", "所属负责人工号", "启用状态"],
+        ["2001", "李教练", "coach@example.com", "销售", "岗位负责人", "否", None, "启用"],
     ])
     result = parse_managed_user_excel(data)
     assert result.rows[0]["department_level1"] == "销售"
@@ -108,9 +108,9 @@ def test_parse_managed_user_excel_keeps_department_after_email():
 
 def test_parse_managed_user_excel_warns_duplicate_employee_no_and_keeps_last_row():
     data = _xlsx([
-        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任负责人", "所属负责人工号", "启用状态"],
         ["1001", "张三", "first@example.com", "研发", "学员", "否", None, "启用"],
-        ["1001", "张三更新", "last@example.com", "销售", "教练", "否", None, "禁用"],
+        ["1001", "张三更新", "last@example.com", "销售", "岗位负责人", "否", None, "禁用"],
     ])
 
     result = parse_managed_user_excel(data)
@@ -131,7 +131,7 @@ def test_parse_managed_user_excel_warns_duplicate_employee_no_and_keeps_last_row
 
 def test_missing_coach_after_duplicate_reports_kept_original_row_number():
     data = _xlsx([
-        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任负责人", "所属负责人工号", "启用状态"],
         ["1001", "张三", None, None, "学员", "否", None, "启用"],
         ["1001", "张三更新", None, None, "学员", "否", "9999", "启用"],
     ])
@@ -141,16 +141,16 @@ def test_missing_coach_after_duplicate_reports_kept_original_row_number():
 
     assert parse_result.errors == [{"row": 3, "reason": "工号重复，已使用最后一条记录"}]
     assert parse_result.rows[0]["row"] == 3
-    assert errors == [{"row": 3, "reason": "所属教练工号不存在或不是教练"}]
+    assert errors == [{"row": 3, "reason": "所属负责人工号不存在或不是岗位负责人"}]
 
 def test_parse_managed_user_excel_rejects_invalid_student_coach_flag():
     data = _xlsx([
-        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"],
+        ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任负责人", "所属负责人工号", "启用状态"],
         ["1001", "张三", None, None, "学员", "是", None, "启用"],
     ])
     result = parse_managed_user_excel(data)
     assert result.rows == []
-    assert result.errors == [{"row": 2, "reason": "学员不能兼任教练"}]
+    assert result.errors == [{"row": 2, "reason": "学员不能兼任负责人"}]
 
 
 def test_resolve_import_coach_links_accepts_same_batch_coach():
@@ -167,7 +167,7 @@ def test_resolve_import_coach_links_rejects_missing_coach():
         {"employee_no": "1001", "primary_role": "student", "is_coach": False, "coach_employee_no": "9999"},
     ]
     errors = resolve_import_coach_links(rows, existing_coach_employee_nos=set())
-    assert errors == [{"row": 2, "reason": "所属教练工号不存在或不是教练"}]
+    assert errors == [{"row": 2, "reason": "所属负责人工号不存在或不是岗位负责人"}]
 
 
 class FakeScalarResult:

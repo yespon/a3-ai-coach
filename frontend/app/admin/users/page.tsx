@@ -21,7 +21,7 @@ import type {
 
 const roleLabels: Record<ManagedUserRole, string> = {
   admin: "管理员",
-  coach: "教练",
+  coach: "岗位负责人",
   student: "学员",
 };
 
@@ -248,7 +248,7 @@ export default function AdminUsersPage() {
         <div>
           <p className="admin-kicker">Managed Users</p>
           <h2>用户管理</h2>
-          <p>统一维护账号角色、教练归属和可用状态，确保学员与教练关系清晰。</p>
+          <p>统一维护账号角色、负责人归属和可用状态，确保学员与负责人关系清晰。</p>
         </div>
         <div className="admin-actions-row">
           <a className="admin-button admin-button-muted" href={managedUsersTemplateUrl()}>
@@ -284,7 +284,7 @@ export default function AdminUsersPage() {
         <article className="admin-card admin-stat-card">
           <p className="admin-kicker">Coach</p>
           <h3>{stats.coaches}</h3>
-          <p>教练(本页)</p>
+          <p>岗位负责人(本页)</p>
         </article>
         <article className="admin-card admin-stat-card">
           <p className="admin-kicker">Student</p>
@@ -316,7 +316,7 @@ export default function AdminUsersPage() {
           >
             <option value="all">全部</option>
             <option value="admin">管理员</option>
-            <option value="coach">教练</option>
+            <option value="coach">岗位负责人</option>
             <option value="student">学员</option>
           </select>
         </label>
@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
           </select>
         </label>
         <label>
-          所属教练
+          所属负责人
           <select
             value={coachFilter}
             onChange={(event) => {
@@ -433,8 +433,8 @@ export default function AdminUsersPage() {
                   <th>邮箱</th>
                   <th>一级部门</th>
                   <th>主角色</th>
-                  <th>兼任教练</th>
-                  <th>所属教练</th>
+                  <th>兼任负责人</th>
+                  <th>所属负责人</th>
                   <th>状态</th>
                   <th>更新时间</th>
                   <th>操作</th>
@@ -507,7 +507,7 @@ export default function AdminUsersPage() {
                 <h3>{editingUser ? "编辑用户信息" : "添加用户"}</h3>
                 <p>
                   {editingUser
-                    ? "仅支持修改角色、教练归属和状态"
+                    ? "仅支持修改角色、负责人归属和状态"
                     : "录入单条用户信息；批量请使用页面顶部的「上传并导入」。"}
                 </p>
               </div>
@@ -576,7 +576,7 @@ export default function AdminUsersPage() {
                 </label>
                 {form.primary_role === "student" ? (
                   <label>
-                    教练归属
+                    负责人归属
                     <select
                       value={form.coach_id || ""}
                       onChange={(event) => updateForm("coach_id", event.target.value || null)}
@@ -603,7 +603,7 @@ export default function AdminUsersPage() {
                       onChange={(event) => updateForm("is_coach", event.target.checked)}
                       disabled={busy}
                     />
-                    <span>管理员兼任教练</span>
+                    <span>管理员兼任岗位负责人</span>
                   </label>
                 ) : null}
                 <label className="admin-switch">

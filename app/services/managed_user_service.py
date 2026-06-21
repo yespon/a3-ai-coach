@@ -12,9 +12,9 @@ from sqlalchemy.sql import Select
 from app.models.db_models import ManagedUserDB
 from app.services.whitelist_service import MAX_WHITELIST_ROWS, WHITELIST_DENY_MESSAGE
 
-ROLE_LABELS = {"管理员": "admin", "教练": "coach", "学员": "student", "admin": "admin", "coach": "coach", "student": "student"}
+ROLE_LABELS = {"管理员": "admin", "岗位负责人": "coach", "学员": "student", "admin": "admin", "coach": "coach", "student": "student"}
 ENABLED_LABELS = {"启用": True, "禁用": False, "true": True, "false": False, "是": True, "否": False}
-MANAGED_USER_TEMPLATE_HEADERS = ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任教练", "所属教练工号", "启用状态"]
+MANAGED_USER_TEMPLATE_HEADERS = ["工号", "姓名", "邮箱", "一级部门", "主角色", "兼任负责人", "所属负责人工号", "启用状态"]
 
 
 @dataclass
@@ -40,7 +40,7 @@ def normalize_managed_user_role(
 ):
     role = ROLE_LABELS.get((primary_role or "学员").strip())
     if role is None:
-        raise ValueError("主角色必须是管理员、教练或学员")
+        raise ValueError("主角色必须是管理员、岗位负责人或学员")
     if role == "coach":
         return {"primary_role": "coach", "is_coach": True, "coach_id": None}
     if role == "admin":
@@ -88,7 +88,7 @@ def parse_managed_user_excel(raw: bytes) -> ManagedUserParseResult:
         header = [_cell_text(c.value) for c in next(ws.iter_rows(min_row=1, max_row=1))]
         indexes = _header_indexes(header)
         if indexes is None:
-            return ManagedUserParseResult(rows=[], errors=[{"row": 1, "reason": "表头必须包含工号、姓名、邮箱、一级部门、主角色、兼任教练、所属教练工号、启用状态"}])
+            return ManagedUserParseResult(rows=[], errors=[{"row": 1, "reason": "表头必须包含工号、姓名、邮箱、一级部门、主角色、兼任负责人、所属负责人工号、启用状态"}])
 
         latest: dict[str, dict[str, Any]] = {}
         errors: list[dict[str, Any]] = []
@@ -101,10 +101,10 @@ def parse_managed_user_excel(raw: bytes) -> ManagedUserParseResult:
                 errors.append({"row": row_no, "reason": "工号为空"})
                 continue
             role_text = _cell_text(row[indexes["主角色"]].value if indexes["主角色"] < len(row) else None) or "学员"
-            coach_flag_text = _cell_text(row[indexes["兼任教练"]].value if indexes["兼任教练"] < len(row) else None)
+            coach_flag_text = _cell_text(row[indexes["兼任负责人"]].value if indexes["兼任负责人"] < len(row) else None)
             coach_flag = _parse_bool(coach_flag_text, False)
             if coach_flag is None:
-                errors.append({"row": row_no, "reason": "兼任教练必须是是或否"})
+                errors.append({"row": row_no, "reason": "兼任负责人必须是是或否"})
                 continue
             try:
                 normalized = normalize_managed_user_role(role_text, coach_flag, None)
@@ -112,7 +112,7 @@ def parse_managed_user_excel(raw: bytes) -> ManagedUserParseResult:
                 errors.append({"row": row_no, "reason": str(exc)})
                 continue
             if normalized["primary_role"] == "student" and coach_flag:
-                errors.append({"row": row_no, "reason": "学员不能兼任教练"})
+                errors.append({"row": row_no, "reason": "学员不能兼任负责人"})
                 continue
             enabled_text = _cell_text(row[indexes["启用状态"]].value if indexes["启用状态"] < len(row) else None)
             enabled = _parse_bool(enabled_text, True)
@@ -128,7 +128,7 @@ def parse_managed_user_excel(raw: bytes) -> ManagedUserParseResult:
                 "department_level1": _cell_text(row[indexes["一级部门"]].value if indexes["一级部门"] < len(row) else None) or None,
                 "primary_role": normalized["primary_role"],
                 "is_coach": normalized["is_coach"],
-                "coach_employee_no": _cell_text(row[indexes["所属教练工号"]].value if indexes["所属教练工号"] < len(row) else None) or None,
+                "coach_employee_no": _cell_text(row[indexes["所属负责人工号"]].value if indexes["所属负责人工号"] < len(row) else None) or None,
                 "enabled": enabled,
                 "row": row_no,
             }
@@ -144,7 +144,7 @@ def resolve_import_coach_links(rows: list[dict[str, Any]], existing_coach_employ
     for idx, row in enumerate(rows, start=2):
         coach_employee_no = row.get("coach_employee_no")
         if row["primary_role"] == "student" and coach_employee_no and coach_employee_no not in valid_coaches:
-            errors.append({"row": row.get("row", idx), "reason": "所属教练工号不存在或不是教练"})
+            errors.append({"row": row.get("row", idx), "reason": "所属负责人工号不存在或不是岗位负责人"})
     return errors
 
 
