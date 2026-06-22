@@ -30,6 +30,7 @@ export default function HomePage() {
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextMenuAbove, setContextMenuAbove] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [coachingMode, setCoachingMode] = useState<string>("a3");
@@ -366,7 +367,21 @@ export default function HomePage() {
                     className="session-rename-input"
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
-                    onBlur={() => void commitRename(item.session_id)}
+                    onBlur={(e) => {
+                      // Don't commit if focus is moving into the context menu
+                      // or back to the menu trigger — otherwise the click on
+                      // "重命名" steals focus, fires onBlur, and immediately
+                      // closes the input the user just opened.
+                      const related = e.relatedTarget as HTMLElement | null;
+                      if (
+                        related &&
+                        (related.closest(".session-context-menu") ||
+                          related.classList.contains("session-menu-trigger"))
+                      ) {
+                        return;
+                      }
+                      void commitRename(item.session_id);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") void commitRename(item.session_id);
                       if (e.key === "Escape") setRenamingId(null);
@@ -391,9 +406,20 @@ export default function HomePage() {
                     e.stopPropagation();
                     if (contextMenuId === item.session_id) {
                       setContextMenuId(null);
+                      setContextMenuPos(null);
                     } else {
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                      setContextMenuAbove(window.innerHeight - rect.bottom < 160);
+                      // Use position: fixed so the menu escapes the .session-list
+                      // overflow: auto clip. Estimated menu size; tweak if the
+                      // menu ever grows.
+                      const MENU_WIDTH = 140;
+                      const MENU_HEIGHT = 132;
+                      const above = window.innerHeight - rect.bottom < MENU_HEIGHT + 16;
+                      setContextMenuAbove(above);
+                      setContextMenuPos({
+                        top: above ? rect.top - MENU_HEIGHT : rect.bottom,
+                        left: Math.max(8, rect.right - MENU_WIDTH),
+                      });
                       setContextMenuId(item.session_id);
                     }
                   }}
@@ -402,8 +428,11 @@ export default function HomePage() {
                   ⋯
                 </button>
                 {contextMenuId === item.session_id ? (
-                  <div className={`session-context-menu ${contextMenuAbove ? "above" : ""}`}>
-                    <button type="button" onClick={() => startRename(item)}>
+                  <div
+                    className={`session-context-menu ${contextMenuAbove ? "above" : ""}`}
+                    style={contextMenuPos ?? undefined}
+                  >
+                    <button type="button" onClick={(e) => { e.stopPropagation(); startRename(item); }}>
                       ✏️ 重命名
                     </button>
                     <button type="button" onClick={() => void handleTogglePin(item.session_id)}>

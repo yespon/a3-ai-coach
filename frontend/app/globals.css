@@ -249,10 +249,8 @@ body {
 }
 
 .session-context-menu {
-  position: absolute;
-  top: 100%;
-  right: 4px;
-  z-index: 100;
+  position: fixed;
+  z-index: 1000;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;

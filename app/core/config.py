@@ -4,7 +4,7 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-CONTEXT_FILE = BASE_DIR / "岗位标准化母体.history.json"
+CONTEXT_FILE = BASE_DIR / "A3教练母体.history.json"
 STATIC_DIR = BASE_DIR / "static"
 UPLOAD_ROOT = BASE_DIR / "uploads"
 SUPPORTED_ATTACHMENT_EXTS = (
@@ -60,12 +60,12 @@ class Settings(BaseSettings):
     spreadsheet_raw_col_limit: int = 0
 
     # --- Database ---
-    database_url: str = "postgresql+asyncpg://gangbiao:gangbiao@localhost:5432/gangbiao"
+    database_url: str = "postgresql+asyncpg://a3coach:a3coach@localhost:5432/a3coach"
 
     # --- CAS / SSO ---
     auth_mode: str = "both"  # "sso" | "local" | "both"
     sid_base_url: str = "https://sid.ruijie.com.cn"
-    sid_service_url: str = "https://gangbiao-ai-coach.ruijie.com.cn/login"
+    sid_service_url: str = "https://a3-ai-coach.ruijie.com.cn/login"
     sid_logout_url: str = "https://sid.ruijie.com.cn/logout"
     session_cookie_name: str = "sid_session"
     session_cookie_secure: bool = True
