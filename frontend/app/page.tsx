@@ -565,7 +565,7 @@ export default function HomePage() {
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
                 onKeyDown={onKeyDown}
-                placeholder="输入你的问题，支持A3报告、Excel等附件"
+                placeholder="输入你的问题，支持Excel、Word、PPT等附件"
                 disabled={busy && !streamingDraft}
               />
               <button
