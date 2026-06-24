@@ -107,9 +107,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="admin-shell">
       <aside className="admin-sidebar" aria-label="管理后台导航">
         <div className="admin-brand-block">
-          <span className="admin-brand-mark">GB</span>
+          <span className="admin-brand-mark">A3</span>
           <div>
-            <p className="admin-kicker">Gangbiao</p>
+            <p className="admin-kicker">A3工作法</p>
             <h1>管理后台</h1>
           </div>
         </div>
