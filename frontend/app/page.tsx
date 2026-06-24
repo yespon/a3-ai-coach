@@ -543,7 +543,8 @@ export default function HomePage() {
               <input
                 id="chat-file-input"
                 type="file"
-                accept=".txt,.md,.json,.csv,.doc,.docx,.xls,.xlsx,.pdf,.pptx"
+                // accept=".txt,.md,.json,.csv,.doc,.docx,.xls,.xlsx,.pdf,.pptx"
+                accept=".xls,.xlsx"
                 onChange={(e) => {
                   const picked = Array.from(e.target.files || []);
                   if (picked.length > 0) {
@@ -565,7 +566,7 @@ export default function HomePage() {
                 onChange={(e) => setMessage(e.target.value)}
                 onInput={syncComposerHeight}
                 onKeyDown={onKeyDown}
-                placeholder="输入你的问题，支持Excel、Word、PPT等附件"
+                placeholder="输入你的问题，支持Excel等附件"
                 disabled={busy && !streamingDraft}
               />
               <button

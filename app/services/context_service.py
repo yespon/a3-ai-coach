@@ -93,15 +93,33 @@ def load_default_context_messages(context_file: Path, logger) -> list[ChatMessag
     raw = json.loads(context_file.read_text(encoding="utf-8"))
     messages: list[ChatMessage] = []
 
-    header = {
-        "version": raw.get("version"),
-        "format": raw.get("format"),
-        "generated_at": raw.get("generated_at"),
-        "source_file": context_file.name,
-    }
-    logger.info("Default context metadata loaded: {}", json.dumps(header, ensure_ascii=False))
+    # Accept both shapes:
+    #   1) {"version": ..., "messages": [...]}  (dict with metadata)
+    #   2) [{"role": ..., "content": ...}, ...]  (bare list of messages)
+    if isinstance(raw, list):
+        items: list[dict[str, Any]] = raw
+        logger.info(
+            "Default context metadata loaded: {}",
+            json.dumps(
+                {
+                    "format": "bare_list",
+                    "source_file": context_file.name,
+                    "message_count": len(items),
+                },
+                ensure_ascii=False,
+            ),
+        )
+    else:
+        items = list(raw.get("messages", []))
+        header = {
+            "version": raw.get("version"),
+            "format": raw.get("format"),
+            "generated_at": raw.get("generated_at"),
+            "source_file": context_file.name,
+        }
+        logger.info("Default context metadata loaded: {}", json.dumps(header, ensure_ascii=False))
 
-    for item in raw.get("messages", []):
+    for item in items:
         role = item.get("role", "user")
         content = item.get("content", "")
         meta = item.get("metadata") if isinstance(item.get("metadata"), dict) else None
