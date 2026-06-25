@@ -34,7 +34,7 @@ export default function AdminOverviewPage() {
       return [
         {
           title: "对话历史",
-          description: "按角色范围查看学员会话，支持会话回放与内容审阅。",
+          description: "查看你负责学员的历史会话与辅导轨迹。",
           href: "/admin/conversations",
         },
         {
