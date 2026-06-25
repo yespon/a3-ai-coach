@@ -66,7 +66,7 @@ export default function AdminOverviewPage() {
       <section className="admin-hero-card">
         <p className="admin-kicker">Overview</p>
         <h2>后台概览</h2>
-        <p>根据角色显示可用模块入口，保持管理员与岗位负责人权限边界清晰。</p>
+        <p>查看你负责学员的历史会话与辅导轨迹。</p>
       </section>
 
       {loading ? (
